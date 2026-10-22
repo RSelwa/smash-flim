@@ -18,10 +18,12 @@ import { PlayerPage } from "@/pages/player-page"
 import "./index.css"
 
 const showError = (error: unknown) => {
-  toast.error(getErrorMessage(error))
+  const message = getErrorMessage(error)
+  toast.error(message, { id: message })
 }
 
 const queryClient = new QueryClient({
+  defaultOptions: { queries: { refetchInterval: 5_000 } },
   queryCache: new QueryCache({ onError: showError }),
   mutationCache: new MutationCache({
     onSuccess: () => {
