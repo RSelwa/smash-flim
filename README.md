@@ -34,7 +34,7 @@ pnpm dev        # Vite on :5173, API on :3000 (proxied under /api)
 | `pnpm format`    | oxfmt                                   |
 | `pnpm test`      | vitest — ELO maths + API against SQLite |
 | `pnpm build`     | typecheck + Vite build into `dist/`     |
-| `pnpm start`     | serves `dist/` and the API on `PORT`    |
+| `pnpm start`     | runs the API on `PORT` (default 3000)   |
 
 The database lives in `data/smash.db` by default (`DATABASE_PATH` overrides it).
 Schema changes are numbered migrations in `server/db.ts`, tracked with
@@ -44,53 +44,41 @@ Character portraits in `public/characters/` are the Super Smash Bros. Ultimate
 fighter thumbnails from smashbros.com, cropped to 128 px WebP. They are
 Nintendo's artwork: fine for an internal tool, keep the repo private.
 
-## Deploy to the home server
+## Deploy to the VPS
 
-Every push to `main` runs `.github/workflows/deploy.yml`: install, lint, test
-and build on GitHub, then ship a ready-to-run release (front build, server, and
-production `node_modules`) to `/var/www/smash-flim` with rsync. On the server,
-`docker compose` runs that folder in a stock `node:24-alpine` container: nothing
-is built there. The job fails if `/api/players` does not answer after restart.
-
-GitHub settings (repo level, or the `production` environment):
-
-| kind     | name                  | value                                    |
-| -------- | --------------------- | ---------------------------------------- |
-| variable | `HOME_SERVER_HOST`    | host or IP the runner can SSH into       |
-| variable | `HOME_SERVER_USER`    | SSH user that runs Docker                |
-| secret   | `HOME_SERVER_SSH_KEY` | private key whose public half is allowed |
-
-One-time setup on the server: Docker with the compose plugin, `rsync`, `curl`,
-and a deploy folder the SSH user owns:
-
-```sh
-sudo mkdir -p /var/www/smash-flim && sudo chown "$USER" /var/www/smash-flim
+```
+browser ──► nginx  flim-smash.raphael-selwa.com
+              ├─ /        → /var/www/smash-flim/dist   (Vite build)
+              └─ /api/*   → 127.0.0.1:3010 → Node (pm2) → data/smash.db
 ```
 
-The SQLite database lives in `/var/www/smash-flim/data`. Deploys never touch
-it. The app listens on `127.0.0.1:3010` only; nginx serves it on
-`flim-smash.raphael-selwa.com` with `deploy/nginx/flim-smash.raphael-selwa.com.conf`:
+Every push to `main` runs `.github/workflows/deploy.yml`: install, lint, test
+and build on GitHub, then rsync a ready-to-run release (Vite build, API, its
+production `node_modules`, `ecosystem.config.cjs`) to `/var/www/smash-flim` on
+the VPS and reload the API with pm2 (nvm Node 24.14.1). Nothing is built on the
+server. The job fails if `/api/players` does not answer after the reload.
 
-1. DNS: `flim-smash` CNAME to the box's DuckDNS name (the public IP changes).
-2. Bbox: forward TCP 80 and 443 to `192.168.1.109`. Nothing else may already
-   listen on them on the box (the Caddy, if still running).
-3. On the box:
+GitHub settings, in the `prod` environment:
 
-   ```sh
-   sudo cp flim-smash.raphael-selwa.com.conf /etc/nginx/sites-available/
-   sudo ln -s /etc/nginx/sites-available/flim-smash.raphael-selwa.com.conf /etc/nginx/sites-enabled/
-   sudo nginx -t && sudo systemctl reload nginx
-   sudo certbot --nginx -d flim-smash.raphael-selwa.com --redirect
-   ```
+| kind     | name              | value                                            |
+| -------- | ----------------- | ------------------------------------------------ |
+| variable | `VPS_HOST`        | `141.94.220.102`                                 |
+| variable | `VPS_USER`        | `debian`                                         |
+| secret   | `SSH_PRIVATE_KEY` | deploy key, its public half in `authorized_keys` |
 
-   certbot adds the HTTPS server and the HTTP → HTTPS redirect to the file, and
-   its timer renews the certificate.
+The nginx site is `deploy/nginx/flim-smash.raphael-selwa.com.conf`, installed as
+`/etc/nginx/sites-available/flim-smash.raphael-selwa.com`. HTTPS comes from
+`sudo certbot --nginx -d flim-smash.raphael-selwa.com --redirect`, which adds
+the TLS server and the redirect to that file; its timer renews the certificate.
+
+The SQLite database lives in `/var/www/smash-flim/data`; deploys never touch it.
+The API listens on `127.0.0.1:3010` only, so nginx is the one way in.
 
 **The app has no login**, so anyone who reaches the URL can add players and
 report results. To lock it, add `auth_basic` to the nginx server block.
 
 Backup, from `/var/www/smash-flim`:
-`docker compose exec smash-flim node -e "require('node:sqlite').backup(new (require('node:sqlite').DatabaseSync)('/app/data/smash.db'), '/app/data/backup.db')"`.
+`node -e "require('node:sqlite').backup(new (require('node:sqlite').DatabaseSync)('data/smash.db'), 'data/backup.db')"`.
 
 ## API
 
