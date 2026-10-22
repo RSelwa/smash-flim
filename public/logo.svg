@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 -98 396 396">
+  <style>
+    path { fill: #000 }
+    @media (prefers-color-scheme: dark) { path { fill: #fff } }
+  </style>
+  <path transform="translate(100 100)" fill-rule="evenodd" d="M100 0A100 100 0 1 1-100 0A100 100 0 1 1 100 0ZM91 0A91 91 0 1 1-91 0A91 91 0 1 1 91 0ZM-38-76.03V7H-84.71A85 85 0 0 1-38-76.03ZM-6-84.79A85 85 0 0 1 84.71 7H-6ZM-82.85 19H-38V76.03A85 85 0 0 1-82.85 19ZM-6 19H82.85A85 85 0 0 1-6 84.79Z"/>
+  <path transform="translate(296 100)" fill-rule="evenodd" d="M100 0A100 100 0 1 1-100 0A100 100 0 1 1 100 0ZM91 0A91 91 0 1 1-91 0A91 91 0 1 1 91 0ZM-38-76.03V7H-84.71A85 85 0 0 1-38-76.03ZM-6-84.79A85 85 0 0 1 84.71 7H-6ZM-82.85 19H-38V76.03A85 85 0 0 1-82.85 19ZM-6 19H82.85A85 85 0 0 1-6 84.79Z"/>
+</svg>

@@ -1,0 +1,87 @@
+name: 🚀 Deploy to home server
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+
+concurrency:
+  group: ${{ github.workflow }}
+  cancel-in-progress: false
+
+env:
+  DEPLOY_PATH: /var/www/smash-flim
+  HEALTH_URL: http://127.0.0.1:3010/api/players
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    name: 🚀 Build and deploy
+    environment: production
+    env:
+      HOME_SERVER_HOST: ${{ vars.HOME_SERVER_HOST }}
+      HOME_SERVER_USER: ${{ vars.HOME_SERVER_USER }}
+    steps:
+      - name: ✨ Checkout
+        uses: actions/checkout@v7
+
+      - name: 📦 Set up pnpm
+        uses: pnpm/action-setup@v6
+
+      - name: 🟢 Set up Node
+        uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - name: 📥 Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: 🔍 Lint
+        run: pnpm lint
+
+      - name: 🧪 Test
+        run: pnpm test
+
+      - name: 🏗️ Build
+        run: pnpm build
+
+      - name: 🧩 Render the compose file
+        run: docker compose config -q
+
+      - name: 📦 Assemble the release
+        run: |
+          set -euo pipefail
+          mkdir release
+          cp -r dist server package.json pnpm-lock.yaml docker-compose.yml release/
+          rm release/server/*.test.ts
+          pnpm --dir release install --prod --frozen-lockfile --config.node-linker=hoisted
+
+      - name: 🔑 Configure SSH
+        env:
+          HOME_SERVER_SSH_KEY: ${{ secrets.HOME_SERVER_SSH_KEY }}
+        run: |
+          set -euo pipefail
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "$HOME_SERVER_SSH_KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          ssh-keyscan -H "$HOME_SERVER_HOST" >> ~/.ssh/known_hosts
+
+      - name: 🚚 Upload the release
+        run: >-
+          rsync --archive --compress --delete --exclude=/data/
+          --rsh "ssh -i ~/.ssh/deploy_key"
+          release/ "$HOME_SERVER_USER@$HOME_SERVER_HOST:$DEPLOY_PATH/"
+
+      - name: 🐳 Restart the container
+        run: |
+          ssh -i ~/.ssh/deploy_key "$HOME_SERVER_USER@$HOME_SERVER_HOST" bash -s <<EOF
+          set -euo pipefail
+          export XDG_RUNTIME_DIR="/run/user/\$(id -u)"
+          cd "$DEPLOY_PATH"
+          mkdir -p data
+          docker compose up --detach --force-recreate --remove-orphans
+          curl --silent --fail --retry 15 --retry-delay 2 --retry-all-errors "$HEALTH_URL" > /dev/null
+          echo "smash-flim is up"
+          EOF
