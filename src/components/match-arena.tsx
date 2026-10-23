@@ -18,6 +18,7 @@ import {
   CardTitle,
 } from "@/components/ui/card"
 import { client } from "@/lib/api"
+import { formatEloDelta } from "@/lib/format"
 import { playersQuery } from "@/lib/queries"
 
 const SLOTS = [
@@ -81,9 +82,18 @@ const FighterSlot = ({
             </p>
           </div>
           {opponent && (
-            <Badge variant="secondary" className="tabular-nums">
-              +{getEloChange(player.elo, opponent.elo)} if wins
-            </Badge>
+            <div className="flex flex-wrap justify-center gap-2">
+              <Badge
+                variant="secondary"
+                className="bg-green-500/10 text-green-700 tabular-nums dark:bg-green-500/20 dark:text-green-400"
+              >
+                {formatEloDelta(getEloChange(player.elo, opponent.elo))} if wins
+              </Badge>
+              <Badge variant="destructive" className="tabular-nums">
+                {formatEloDelta(-getEloChange(opponent.elo, player.elo))} if
+                loses
+              </Badge>
+            </div>
           )}
         </>
       ) : (
