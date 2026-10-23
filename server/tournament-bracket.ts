@@ -22,7 +22,21 @@ const INSERT_TOURNAMENT_MATCH = `
   ) values (:player1Id, :player2Id, :tournamentId, :round, :position)
 `
 
+const SELECT_NEXT_MATCH = `
+  select next.id, next.winner_id as winnerId
+  from matches m
+  join matches next
+    on next.tournament_id = m.tournament_id
+    and next.tournament_round = m.tournament_round + 1
+    and next.tournament_position = m.tournament_position / 2
+  where m.id = ?
+`
+
 const slotsSchema = z.array(z.object({ playerId: z.number().nullable() }))
+
+const nextMatchSchema = z
+  .object({ id: z.number(), winnerId: z.number().nullable() })
+  .optional()
 
 const bracketMatchesSchema = z.array(
   z.object({
@@ -42,6 +56,7 @@ export const createTournamentBracket = (db: DatabaseSync) => {
   )
   const selectMatches = db.prepare(SELECT_TOURNAMENT_MATCHES)
   const insertMatch = db.prepare(INSERT_TOURNAMENT_MATCH)
+  const selectNextMatch = db.prepare(SELECT_NEXT_MATCH)
 
   const findRounds = (tournamentId: number) => {
     const slots = slotsSchema
@@ -60,5 +75,8 @@ export const createTournamentBracket = (db: DatabaseSync) => {
       })
   }
 
-  return { findRounds, scheduleReadyMatches }
+  const findNextMatch = (matchId: number) =>
+    nextMatchSchema.parse(selectNextMatch.get(matchId))
+
+  return { findRounds, scheduleReadyMatches, findNextMatch }
 }

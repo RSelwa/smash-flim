@@ -12,6 +12,7 @@ import { YAxis } from "@/components/dither-kit/y-axis"
 import { EditPlayerDialog } from "@/components/edit-player-dialog"
 import { PlayerAvatar } from "@/components/player-avatar"
 import { PlayerLink } from "@/components/player-link"
+import { UndoResultButton } from "@/components/undo-result-button"
 import { Badge } from "@/components/ui/badge"
 import {
   Card,
@@ -180,6 +181,9 @@ export const PlayerPage = () => {
                   <TableHead>Result</TableHead>
                   <TableHead>Opponent</TableHead>
                   <TableHead className="text-right">ELO</TableHead>
+                  <TableHead>
+                    <span className="sr-only">Undo</span>
+                  </TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -202,6 +206,9 @@ export const PlayerPage = () => {
                         <span className="text-muted-foreground">
                           ({formatEloDelta(eloDelta)})
                         </span>
+                      </TableCell>
+                      <TableCell className="w-0">
+                        <UndoResultButton matchId={match.id} />
                       </TableCell>
                     </TableRow>
                   ),

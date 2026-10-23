@@ -40,6 +40,11 @@ const setWinner = (client: Client, matchId: number, winnerId: number) =>
     json: { winnerId },
   })
 
+const undoResult = (client: Client, matchId: number) =>
+  client.api.matches[":id"].winner.$delete({
+    param: { id: String(matchId) },
+  })
+
 const createTournament = (client: Client, playerIds: number[]) =>
   client.api.tournaments.$post({ json: { playerIds } })
 
@@ -284,6 +289,55 @@ describe("matches api", () => {
 
       expect(response.status).toBe(409)
     })
+
+    describe("when its result is undone", () => {
+      beforeEach(async () => {
+        await undoResult(client, matchId)
+      })
+
+      it("should set the match back to pending", async () => {
+        const pendingMatches = await getPendingMatches(client)
+
+        expect(pendingMatches).toMatchObject([
+          { id: matchId, winnerId: null, eloChange: null, playedAt: null },
+        ])
+      })
+
+      it("should give both players back their ELO", async () => {
+        const players = await (await client.api.players.$get()).json()
+
+        expect(players).toMatchObject([
+          { id: linkId, elo: STARTING_ELO, wins: 0, losses: 0 },
+          { id: marioId, elo: STARTING_ELO, wins: 0, losses: 0 },
+        ])
+      })
+    })
+
+    it("should replay the ELO of a later match when its result is undone", async () => {
+      const kirbyId = (await createPlayer(client, "Kirby")).id
+      const laterMatchId = (await createMatch(client, linkId, kirbyId)).id
+      await setWinner(client, laterMatchId, linkId)
+
+      await undoResult(client, matchId)
+      const players = await (await client.api.players.$get()).json()
+
+      expect(players).toMatchObject([
+        { id: linkId, elo: 1016 },
+        { id: marioId, elo: STARTING_ELO },
+        { id: kirbyId, elo: 984 },
+      ])
+    })
+  })
+
+  it("should refuse to undo a match without a result", async () => {
+    const client = createClient()
+    const mario = await createPlayer(client, "Mario")
+    const link = await createPlayer(client, "Link")
+    const match = await createMatch(client, mario.id, link.id)
+
+    const response = await undoResult(client, match.id)
+
+    expect(response.status).toBe(409)
   })
 })
 
@@ -429,6 +483,36 @@ describe("tournaments api", () => {
       const [tournament] = await (await client.api.tournaments.$get()).json()
 
       expect(tournament?.rounds.at(-1)?.[0]?.winnerId).toBe(final.player2Id)
+    })
+
+    it("should unschedule the final when a semifinal result is undone", async () => {
+      const [semifinal] = await (
+        await client.api.matches.$get({
+          query: { status: MATCH_STATUS.completed },
+        })
+      ).json()
+      assert(semifinal)
+
+      await undoResult(client, semifinal.id)
+      const pendingMatches = await getPendingMatches(client)
+
+      expect(pendingMatches.map(({ id }) => id)).toEqual([semifinal.id])
+    })
+
+    it("should refuse to undo a semifinal once the final is played", async () => {
+      const [final] = await getPendingMatches(client)
+      assert(final)
+      await setWinner(client, final.id, final.player1Id)
+      const [, semifinal] = await (
+        await client.api.matches.$get({
+          query: { status: MATCH_STATUS.completed },
+        })
+      ).json()
+      assert(semifinal)
+
+      const response = await undoResult(client, semifinal.id)
+
+      expect(response.status).toBe(409)
     })
   })
 })

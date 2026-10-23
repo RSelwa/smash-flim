@@ -1,5 +1,6 @@
 import type { CompletedMatch } from "@server/schemas.ts"
 import { PlayerLink } from "@/components/player-link"
+import { UndoResultButton } from "@/components/undo-result-button"
 import {
   Empty,
   EmptyDescription,
@@ -61,6 +62,9 @@ export const MatchHistoryTable = ({ matches }: MatchHistoryTableProps) => {
           <TableHead>Winner</TableHead>
           <TableHead>Loser</TableHead>
           <TableHead className="text-right">ELO swing</TableHead>
+          <TableHead>
+            <span className="sr-only">Undo</span>
+          </TableHead>
         </TableRow>
       </TableHeader>
       <TableBody>
@@ -93,6 +97,9 @@ export const MatchHistoryTable = ({ matches }: MatchHistoryTableProps) => {
               </TableCell>
               <TableCell className="text-right font-medium tabular-nums">
                 {formatEloDelta(match.eloChange)}
+              </TableCell>
+              <TableCell className="w-0">
+                <UndoResultButton matchId={match.id} />
               </TableCell>
             </TableRow>
           )

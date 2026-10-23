@@ -7,6 +7,7 @@ import { getEloChange } from "@server/elo.ts"
 import type { Player } from "@server/schemas.ts"
 import { PlayerAvatar } from "@/components/player-avatar"
 import { PlayerLink } from "@/components/player-link"
+import { UndoResultButton } from "@/components/undo-result-button"
 import { Button } from "@/components/ui/button"
 import {
   Card,
@@ -80,6 +81,7 @@ const BracketMatchCard = ({
         const isLoser = hasResult && !isWinner
         const canReport =
           matchId !== null && !hasResult && opponent !== undefined
+        const canUndo = matchId !== null && isWinner
         return (
           <div
             key={slot}
@@ -111,6 +113,7 @@ const BracketMatchCard = ({
                 {player.elo}
               </span>
             )}
+            {canUndo && <UndoResultButton matchId={matchId} />}
           </div>
         )
       })}

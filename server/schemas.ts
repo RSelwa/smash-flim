@@ -94,10 +94,20 @@ const completedMatchSchema = matchBaseSchema.extend({
 
 export const matchSchema = z.union([pendingMatchSchema, completedMatchSchema])
 
+export const playedMatchSchema = completedMatchSchema.pick({
+  id: true,
+  player1Id: true,
+  player2Id: true,
+  winnerId: true,
+  player1EloBefore: true,
+  player2EloBefore: true,
+})
+
 export type Character = z.infer<typeof characterSchema>
 export type PlayerInput = z.infer<typeof playerInputSchema>
 export type Player = z.infer<typeof playerSchema>
 export type Match = z.infer<typeof matchSchema>
 export type PendingMatch = z.infer<typeof pendingMatchSchema>
 export type CompletedMatch = z.infer<typeof completedMatchSchema>
+export type PlayedMatch = z.infer<typeof playedMatchSchema>
 export type MatchesFilter = z.infer<typeof matchesQuerySchema>

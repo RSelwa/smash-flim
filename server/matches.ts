@@ -9,9 +9,11 @@ import {
   idParamSchema,
   matchSchema,
   matchesQuerySchema,
+  playedMatchSchema,
   setWinnerSchema,
   type MatchesFilter,
 } from "./schemas.ts"
+import { replayElo } from "./replay-elo.ts"
 import { createTournamentBracket } from "./tournament-bracket.ts"
 import { validate } from "./validate.ts"
 
@@ -53,6 +55,37 @@ const UPDATE_WINNER = `
   where id = :id
 `
 
+const RESET_RESULT = `
+  update matches set
+    winner_id = null,
+    player1_elo_before = null,
+    player2_elo_before = null,
+    elo_change = null,
+    played_at = null
+  where id = ?
+`
+
+const SELECT_LATER_MATCHES = `
+  select
+    id,
+    player1_id as player1Id,
+    player2_id as player2Id,
+    winner_id as winnerId,
+    player1_elo_before as player1EloBefore,
+    player2_elo_before as player2EloBefore
+  from matches
+  where winner_id is not null and (played_at, id) > (:playedAt, :id)
+  order by played_at, id
+`
+
+const UPDATE_ELO_SNAPSHOT = `
+  update matches set
+    player1_elo_before = :player1EloBefore,
+    player2_elo_before = :player2EloBefore,
+    elo_change = :eloChange
+  where id = :id
+`
+
 type MatchFilters = MatchesFilter & { matchId?: number }
 
 export const createMatchesRoutes = (db: DatabaseSync) => {
@@ -67,6 +100,10 @@ export const createMatchesRoutes = (db: DatabaseSync) => {
   const updateWinner = db.prepare(UPDATE_WINNER)
   const updateElo = db.prepare("update players set elo = elo + ? where id = ?")
   const deleteMatch = db.prepare("delete from matches where id = ?")
+  const resetResult = db.prepare(RESET_RESULT)
+  const selectLaterMatches = db.prepare(SELECT_LATER_MATCHES)
+  const updateEloSnapshot = db.prepare(UPDATE_ELO_SNAPSHOT)
+  const setElo = db.prepare("update players set elo = ? where id = ?")
 
   const findMatches = ({ matchId, status, playerId, limit }: MatchFilters) =>
     z.array(matchSchema).parse(
@@ -155,6 +192,45 @@ export const createMatchesRoutes = (db: DatabaseSync) => {
         return c.json(findMatch(id))
       },
     )
+    .delete("/:id/winner", validate("param", idParamSchema), (c) => {
+      const { id } = c.req.valid("param")
+      const match = findMatch(id)
+      if (match.winnerId === null) {
+        throw new HTTPException(409, { message: "Match has no result" })
+      }
+
+      const nextMatch = tournamentBracket.findNextMatch(id)
+      const isNextMatchPlayed =
+        nextMatch !== undefined && nextMatch.winnerId !== null
+      if (isNextMatchPlayed) {
+        throw new HTTPException(409, {
+          message: "Undo the next round first",
+        })
+      }
+
+      const laterMatches = z
+        .array(playedMatchSchema)
+        .parse(selectLaterMatches.all({ id, playedAt: match.playedAt }))
+      const replay = replayElo(match, laterMatches)
+
+      db.exec("begin")
+      try {
+        resetResult.run(id)
+        if (nextMatch) deleteMatch.run(nextMatch.id)
+        replay.matches.forEach((laterMatch) => {
+          updateEloSnapshot.run(laterMatch)
+        })
+        replay.elos.forEach((elo, playerId) => {
+          setElo.run(elo, playerId)
+        })
+        db.exec("commit")
+      } catch (error) {
+        db.exec("rollback")
+        throw error
+      }
+
+      return c.json(findMatch(id))
+    })
     .delete("/:id", validate("param", idParamSchema), (c) => {
       const { id } = c.req.valid("param")
       const match = findMatch(id)
