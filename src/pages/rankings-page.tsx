@@ -2,8 +2,8 @@ import { useMemo, useState } from "react"
 import { useQuery } from "@tanstack/react-query"
 import { MATCH_STATUS, STARTING_ELO } from "@server/constants.ts"
 import type { Player } from "@server/schemas.ts"
-import { Area, Line } from "@/components/dither-kit/area"
-import { AreaChart, LineChart } from "@/components/dither-kit/area-chart"
+import { Line } from "@/components/dither-kit/area"
+import { LineChart } from "@/components/dither-kit/area-chart"
 import {
   type ChartConfig,
   useChartPart,
@@ -260,15 +260,15 @@ export const RankingsPage = () => {
           </CardHeader>
           <CardContent>
             <div className="h-96">
-              <AreaChart data={eloRows} config={chartConfig}>
+              <LineChart data={eloRows} config={chartConfig}>
                 <Grid />
                 <XAxis dataKey="match" />
                 <YAxis tickFormatter={formatElo} />
                 <Tooltip labelKey="label" valueFormatter={formatElo} />
                 {visibleDataKeys.map((dataKey) => (
-                  <Area key={dataKey} dataKey={dataKey} />
+                  <Line key={dataKey} dataKey={dataKey} />
                 ))}
-              </AreaChart>
+              </LineChart>
             </div>
             {playerLegend}
           </CardContent>
