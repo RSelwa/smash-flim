@@ -1,8 +1,14 @@
 import { useQuery } from "@tanstack/react-query"
 import { useParams } from "react-router"
-import { CartesianGrid, Line, LineChart, XAxis, YAxis } from "recharts"
 import { CHARACTERS } from "@server/characters.ts"
 import { MATCH_STATUS, STARTING_ELO } from "@server/constants.ts"
+import { Area } from "@/components/dither-kit/area"
+import { AreaChart } from "@/components/dither-kit/area-chart"
+import { type ChartConfig } from "@/components/dither-kit/chart-context"
+import { Grid } from "@/components/dither-kit/grid"
+import { Tooltip } from "@/components/dither-kit/tooltip"
+import { XAxis } from "@/components/dither-kit/x-axis"
+import { YAxis } from "@/components/dither-kit/y-axis"
 import { EditPlayerDialog } from "@/components/edit-player-dialog"
 import { PlayerAvatar } from "@/components/player-avatar"
 import { PlayerLink } from "@/components/player-link"
@@ -14,12 +20,6 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card"
-import {
-  type ChartConfig,
-  ChartContainer,
-  ChartTooltip,
-  ChartTooltipContent,
-} from "@/components/ui/chart"
 import {
   Empty,
   EmptyDescription,
@@ -35,13 +35,12 @@ import {
   TableRow,
 } from "@/components/ui/table"
 import { formatDate, formatEloDelta, formatWinRate } from "@/lib/format"
+import { getEloFloor } from "@/lib/get-elo-floor"
 import { isCompletedMatch } from "@/lib/is-completed-match"
 import { matchesQuery, playersQuery } from "@/lib/queries"
 
-const ELO_AXIS_PADDING = 20
-
 const chartConfig = {
-  elo: { label: "ELO", color: "var(--chart-1)" },
+  elo: { label: "ELO", color: "blue" },
 } satisfies ChartConfig
 
 export const PlayerPage = () => {
@@ -99,7 +98,15 @@ export const PlayerPage = () => {
       .map(({ eloAfter }, index) => ({ game: index + 1, elo: eloAfter })),
   ]
   const mainName = CHARACTERS.find(({ id }) => id === player.character)?.name
-  const peakElo = Math.max(...chartData.map(({ elo }) => elo))
+  const elos = chartData.map(({ elo }) => elo)
+  const peakElo = Math.max(...elos)
+  const eloFloor = getEloFloor(elos)
+  const chartRows = chartData.map(({ game, elo }) => ({
+    game,
+    label: `Match ${game}`,
+    elo: elo - eloFloor,
+  }))
+  const formatElo = (value: number) => String(value + eloFloor)
   const stats = [
     { label: "ELO", value: player.elo },
     { label: "Rank", value: `#${playerIndex + 1} / ${players.length}` },
@@ -144,38 +151,15 @@ export const PlayerPage = () => {
           <CardDescription>After each match</CardDescription>
         </CardHeader>
         <CardContent>
-          <ChartContainer
-            config={chartConfig}
-            className="aspect-auto h-64 w-full"
-          >
-            <LineChart data={chartData} margin={{ left: 0, right: 12 }}>
-              <CartesianGrid vertical={false} />
-              <XAxis dataKey="game" tickLine={false} axisLine={false} />
-              <YAxis
-                width={40}
-                tickLine={false}
-                axisLine={false}
-                domain={[
-                  `dataMin - ${ELO_AXIS_PADDING}`,
-                  `dataMax + ${ELO_AXIS_PADDING}`,
-                ]}
-              />
-              <ChartTooltip
-                content={
-                  <ChartTooltipContent
-                    labelFormatter={(game) => `Match ${game}`}
-                  />
-                }
-              />
-              <Line
-                dataKey="elo"
-                type="monotone"
-                stroke="var(--color-elo)"
-                strokeWidth={2}
-                dot={false}
-              />
-            </LineChart>
-          </ChartContainer>
+          <div className="h-64">
+            <AreaChart data={chartRows} config={chartConfig}>
+              <Grid />
+              <XAxis dataKey="game" />
+              <YAxis tickFormatter={formatElo} />
+              <Tooltip labelKey="label" valueFormatter={formatElo} />
+              <Area dataKey="elo" />
+            </AreaChart>
+          </div>
         </CardContent>
       </Card>
 
