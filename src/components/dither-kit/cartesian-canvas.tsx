@@ -12,6 +12,9 @@ import {
 } from "./dither-paint"
 import { rgb } from "./palette"
 
+const LINE_GLOW_MIN_ROWS = 2
+const LINE_GLOW_RATIO = 0.06
+
 type Star = { key: string; xi: number; depth: number; phase: number }
 type Surface = { top: number[]; floor: number[] }
 
@@ -311,7 +314,10 @@ export function CartesianCanvas() {
     const out: Record<string, Surface> = {}
     if (!ready) return out
     const h = height || 1
-    const glow = Math.max(6, Math.round(rows * 0.16))
+    const glow = Math.max(
+      LINE_GLOW_MIN_ROWS,
+      Math.round(rows * LINE_GLOW_RATIO),
+    )
     const defaultKind = chartType === "line" ? "line" : "area"
     for (const key of configKeys) {
       const band = bands[key]
