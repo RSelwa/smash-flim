@@ -210,7 +210,7 @@ export const RankingsPage = () => {
 
   return (
     <div className="grid gap-6">
-      <Card>
+      <Card className="overflow-visible">
         <CardHeader>
           <CardTitle>Ranking over time</CardTitle>
           <CardDescription>
@@ -251,7 +251,7 @@ export const RankingsPage = () => {
         </CardContent>
       </Card>
       {eloRows.length > 0 && (
-        <Card>
+        <Card className="overflow-visible">
           <CardHeader>
             <CardTitle>ELO over time</CardTitle>
             <CardDescription>

@@ -145,7 +145,7 @@ export const PlayerPage = () => {
         ))}
       </dl>
 
-      <Card>
+      <Card className="overflow-visible">
         <CardHeader>
           <CardTitle>ELO over time</CardTitle>
           <CardDescription>After each match</CardDescription>
