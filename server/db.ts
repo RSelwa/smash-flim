@@ -29,6 +29,27 @@ const MIGRATIONS = [
   create index if not exists matches_player2_id on matches (player2_id);
   `,
   "alter table players add column character text",
+  `
+  create table tournaments (
+    id integer primary key,
+    created_at text not null default (${SQL_NOW})
+  );
+
+  create table tournament_slots (
+    tournament_id integer not null references tournaments (id),
+    slot integer not null,
+    player_id integer references players (id),
+    primary key (tournament_id, slot),
+    unique (tournament_id, player_id)
+  );
+
+  alter table matches add column tournament_id integer references tournaments (id);
+  alter table matches add column tournament_round integer;
+  alter table matches add column tournament_position integer;
+
+  create unique index matches_tournament_node
+    on matches (tournament_id, tournament_round, tournament_position);
+  `,
 ]
 
 const userVersionSchema = z.object({ user_version: z.number() })

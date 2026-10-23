@@ -16,6 +16,8 @@ import { DashboardPage } from "@/pages/dashboard-page"
 import { MatchesPage } from "@/pages/matches-page"
 import { PlayerPage } from "@/pages/player-page"
 import { RankingsPage } from "@/pages/rankings-page"
+import { TournamentPage } from "@/pages/tournament-page"
+import { TournamentsPage } from "@/pages/tournaments-page"
 import "./index.css"
 
 const showError = (error: unknown) => {
@@ -42,6 +44,11 @@ createRoot(document.getElementById("root")!).render(
           <Route element={<AppLayout />}>
             <Route path={ROUTE_PATH.dashboard} element={<DashboardPage />} />
             <Route path={ROUTE_PATH.rankings} element={<RankingsPage />} />
+            <Route
+              path={ROUTE_PATH.tournaments}
+              element={<TournamentsPage />}
+            />
+            <Route path={ROUTE_PATH.tournament} element={<TournamentPage />} />
             <Route path={ROUTE_PATH.matches} element={<MatchesPage />} />
             <Route path={ROUTE_PATH.player} element={<PlayerPage />} />
           </Route>

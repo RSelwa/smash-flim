@@ -12,6 +12,12 @@ one SQLite file.
    halves, then "Start match". Each half shows the ELO at stake.
 3. **Report the winner**: click "<name> won" under "Ongoing matches".
    A pending match can be cancelled; a reported one cannot.
+4. **Tournament**: drag the participants in, then "Draw bracket". Single
+   elimination over the next power of two: the best ELO are seeded (#1 and #2
+   in opposite halves) and get the byes, everyone else is drawn at random.
+   Tournament matches are regular ELO matches, reported from the bracket or
+   "Ongoing matches"; the winner moves up on their own. They cannot be
+   cancelled.
 
 ELO uses K = 32: `change = round(32 × (1 − expected))`, where
 `expected = 1 / (1 + 10^((loser − winner) / 400))`. The winner gains what the
@@ -91,3 +97,5 @@ Backup, from `/var/www/smash-flim`:
 | `POST`   | `/api/matches`            | `{ player1Id, player2Id }`  |
 | `POST`   | `/api/matches/:id/winner` | `{ winnerId }`              |
 | `DELETE` | `/api/matches/:id`        | — (pending matches only)    |
+| `GET`    | `/api/tournaments`        | —                           |
+| `POST`   | `/api/tournaments`        | `{ playerIds }`             |

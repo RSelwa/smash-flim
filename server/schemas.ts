@@ -1,6 +1,10 @@
 import { z } from "zod"
 import { CHARACTERS } from "./characters.ts"
-import { MATCH_STATUS, PLAYER_NAME_MAX_LENGTH } from "./constants.ts"
+import {
+  MATCH_STATUS,
+  MIN_TOURNAMENT_PLAYERS,
+  PLAYER_NAME_MAX_LENGTH,
+} from "./constants.ts"
 
 const idSchema = z.coerce.number().int().positive()
 
@@ -33,6 +37,15 @@ export const setWinnerSchema = z.object({
   winnerId: z.number().int().positive(),
 })
 
+export const createTournamentSchema = z.object({
+  playerIds: z
+    .array(z.number().int().positive())
+    .min(MIN_TOURNAMENT_PLAYERS, "Pick at least two players")
+    .refine((playerIds) => new Set(playerIds).size === playerIds.length, {
+      message: "Pick each player once",
+    }),
+})
+
 export const matchesQuerySchema = z.object({
   status: z.enum(MATCH_STATUS).optional(),
   playerId: idSchema.optional(),
@@ -60,6 +73,7 @@ const matchBaseSchema = z.object({
   player2Name: z.string(),
   player2Character: characterSchema.nullable(),
   player2Elo: z.number(),
+  tournamentId: z.number().nullable(),
 })
 
 const pendingMatchSchema = matchBaseSchema.extend({

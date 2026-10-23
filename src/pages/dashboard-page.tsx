@@ -166,15 +166,17 @@ export const DashboardPage = () => {
                           </span>
                         </Button>
                       ))}
-                      <Button
-                        size="icon-sm"
-                        variant="ghost"
-                        aria-label="Cancel match"
-                        disabled={isReporting}
-                        onClick={() => cancelMatch.mutate(match.id)}
-                      >
-                        <X />
-                      </Button>
+                      {match.tournamentId === null && (
+                        <Button
+                          size="icon-sm"
+                          variant="ghost"
+                          aria-label="Cancel match"
+                          disabled={isReporting}
+                          onClick={() => cancelMatch.mutate(match.id)}
+                        >
+                          <X />
+                        </Button>
+                      )}
                     </div>
                   </li>
                 )

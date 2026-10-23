@@ -56,6 +56,7 @@ const createMatch = ({
     player2Character: player2.character,
     player2Elo: player2.elo,
     player2EloBefore,
+    tournamentId: null,
   }) satisfies CompletedMatch
 
 describe("getRankHistory", () => {

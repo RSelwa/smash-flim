@@ -12,6 +12,7 @@ import {
   setWinnerSchema,
   type MatchesFilter,
 } from "./schemas.ts"
+import { createTournamentBracket } from "./tournament-bracket.ts"
 import { validate } from "./validate.ts"
 
 const SELECT_MATCHES = `
@@ -30,7 +31,8 @@ const SELECT_MATCHES = `
     p2.name as player2Name,
     p2.character as player2Character,
     p2.elo as player2Elo,
-    m.player2_elo_before as player2EloBefore
+    m.player2_elo_before as player2EloBefore,
+    m.tournament_id as tournamentId
   from matches m
   join players p1 on p1.id = m.player1_id
   join players p2 on p2.id = m.player2_id
@@ -54,6 +56,7 @@ const UPDATE_WINNER = `
 type MatchFilters = MatchesFilter & { matchId?: number }
 
 export const createMatchesRoutes = (db: DatabaseSync) => {
+  const tournamentBracket = createTournamentBracket(db)
   const selectMatches = db.prepare(SELECT_MATCHES)
   const countPlayers = db.prepare(
     "select count(*) as count from players where id in (?, ?)",
@@ -140,6 +143,9 @@ export const createMatchesRoutes = (db: DatabaseSync) => {
           })
           updateElo.run(eloChange, winnerId)
           updateElo.run(-eloChange, loserId)
+          if (match.tournamentId !== null) {
+            tournamentBracket.scheduleReadyMatches(match.tournamentId)
+          }
           db.exec("commit")
         } catch (error) {
           db.exec("rollback")
@@ -155,6 +161,11 @@ export const createMatchesRoutes = (db: DatabaseSync) => {
       if (match.winnerId !== null) {
         throw new HTTPException(409, {
           message: "A completed match cannot be cancelled",
+        })
+      }
+      if (match.tournamentId !== null) {
+        throw new HTTPException(409, {
+          message: "A tournament match cannot be cancelled",
         })
       }
 

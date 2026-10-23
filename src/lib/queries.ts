@@ -14,3 +14,8 @@ export const matchesQuery = (query: MatchesQuery) =>
     queryKey: ["matches", query],
     queryFn: () => parseResponse(client.api.matches.$get({ query })),
   })
+
+export const tournamentsQuery = queryOptions({
+  queryKey: ["tournaments"],
+  queryFn: () => parseResponse(client.api.tournaments.$get()),
+})

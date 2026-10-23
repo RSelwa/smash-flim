@@ -8,6 +8,7 @@ import { Link, NavLink, Outlet } from "react-router"
 const NAV_ITEMS = [
   { to: ROUTE_PATH.dashboard, label: "Leaderboard" },
   { to: ROUTE_PATH.rankings, label: "Rankings" },
+  { to: ROUTE_PATH.tournaments, label: "Tournaments" },
   { to: ROUTE_PATH.matches, label: "History" },
 ]
 

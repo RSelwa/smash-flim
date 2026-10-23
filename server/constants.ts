@@ -2,6 +2,8 @@ export const STARTING_ELO = 1000
 
 export const PLAYER_NAME_MAX_LENGTH = 32
 
+export const MIN_TOURNAMENT_PLAYERS = 2
+
 export const MATCH_STATUS = {
   pending: "pending",
   completed: "completed",

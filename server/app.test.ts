@@ -1,11 +1,12 @@
 import { testClient } from "hono/testing"
-import { beforeEach, describe, expect, it } from "vitest"
+import { assert, beforeEach, describe, expect, it } from "vitest"
 import { createApp } from "./app.ts"
 import { MATCH_STATUS, STARTING_ELO } from "./constants.ts"
 import { openDatabase } from "./db.ts"
 import { type Character } from "./schemas.ts"
 
 const DEFAULT_CHARACTER = "mario"
+const TOURNAMENT_PLAYER_NAMES = ["Mario", "Link", "Kirby", "Samus"]
 
 const createClient = () => testClient(createApp(openDatabase(":memory:")))
 
@@ -38,6 +39,19 @@ const setWinner = (client: Client, matchId: number, winnerId: number) =>
     param: { id: String(matchId) },
     json: { winnerId },
   })
+
+const createTournament = (client: Client, playerIds: number[]) =>
+  client.api.tournaments.$post({ json: { playerIds } })
+
+const createTournamentPlayers = (client: Client, names: string[]) =>
+  Promise.all(names.map((name) => createPlayer(client, name)))
+
+const getPendingMatches = async (client: Client) => {
+  const response = await client.api.matches.$get({
+    query: { status: MATCH_STATUS.pending },
+  })
+  return response.json()
+}
 
 describe("players api", () => {
   it("should create a player at the starting ELO", async () => {
@@ -269,6 +283,152 @@ describe("matches api", () => {
       })
 
       expect(response.status).toBe(409)
+    })
+  })
+})
+
+describe("tournaments api", () => {
+  it("should schedule the first round as pending matches", async () => {
+    const client = createClient()
+    const players = await createTournamentPlayers(
+      client,
+      TOURNAMENT_PLAYER_NAMES,
+    )
+
+    const response = await createTournament(
+      client,
+      players.map(({ id }) => id),
+    )
+    const tournament = await response.json()
+    const pendingMatches = await getPendingMatches(client)
+
+    expect(response.status).toBe(201)
+    expect(pendingMatches.map(({ tournamentId }) => tournamentId)).toEqual([
+      tournament.id,
+      tournament.id,
+    ])
+  })
+
+  it("should give the bye to the best ELO", async () => {
+    const client = createClient()
+    const kirby = await createPlayer(client, "Kirby")
+    const link = await createPlayer(client, "Link")
+    const mario = await createPlayer(client, "Mario")
+    const match = await createMatch(client, mario.id, link.id)
+    await setWinner(client, match.id, mario.id)
+
+    const response = await createTournament(client, [
+      link.id,
+      kirby.id,
+      mario.id,
+    ])
+    const tournament = await response.json()
+
+    expect(tournament.rounds[0]?.[0]).toMatchObject({
+      player1Id: mario.id,
+      player2Id: null,
+      winnerId: mario.id,
+    })
+  })
+
+  it("should schedule a match between two byes straight away", async () => {
+    const client = createClient()
+    const players = await createTournamentPlayers(client, [
+      ...TOURNAMENT_PLAYER_NAMES,
+      "Zelda",
+    ])
+
+    await createTournament(
+      client,
+      players.map(({ id }) => id),
+    )
+    const pendingMatches = await getPendingMatches(client)
+
+    expect(pendingMatches).toHaveLength(2)
+  })
+
+  it("should reject fewer than two players", async () => {
+    const client = createClient()
+    const mario = await createPlayer(client, "Mario")
+
+    const response = await createTournament(client, [mario.id])
+
+    expect(response.status).toBe(400)
+  })
+
+  it("should reject the same player twice", async () => {
+    const client = createClient()
+    const mario = await createPlayer(client, "Mario")
+
+    const response = await createTournament(client, [mario.id, mario.id])
+
+    expect(response.status).toBe(400)
+  })
+
+  it("should reject an unknown player", async () => {
+    const client = createClient()
+    const mario = await createPlayer(client, "Mario")
+
+    const response = await createTournament(client, [mario.id, 999])
+
+    expect(response.status).toBe(404)
+  })
+
+  it("should refuse to cancel a tournament match", async () => {
+    const client = createClient()
+    const players = await createTournamentPlayers(client, ["Mario", "Link"])
+    await createTournament(
+      client,
+      players.map(({ id }) => id),
+    )
+    const [final] = await getPendingMatches(client)
+    assert(final)
+
+    const response = await client.api.matches[":id"].$delete({
+      param: { id: String(final.id) },
+    })
+
+    expect(response.status).toBe(409)
+  })
+
+  describe("when every first-round match is reported", () => {
+    let client: Client
+    let finalistIds: number[]
+
+    beforeEach(async () => {
+      client = createClient()
+      const players = await createTournamentPlayers(
+        client,
+        TOURNAMENT_PLAYER_NAMES,
+      )
+      await createTournament(
+        client,
+        players.map(({ id }) => id),
+      )
+      const firstRound = await getPendingMatches(client)
+      finalistIds = firstRound.map(({ player1Id }) => player1Id)
+      await Promise.all(
+        firstRound.map(({ id, player1Id }) => setWinner(client, id, player1Id)),
+      )
+    })
+
+    it("should schedule the final between the winners", async () => {
+      const [final] = await getPendingMatches(client)
+      assert(final)
+
+      expect([final.player1Id, final.player2Id]).toEqual(
+        expect.arrayContaining(finalistIds),
+      )
+    })
+
+    it("should crown the winner of the final", async () => {
+      const [final] = await getPendingMatches(client)
+      assert(final)
+
+      await setWinner(client, final.id, final.player2Id)
+      const [tournament] = await (await client.api.tournaments.$get()).json()
+
+      expect(tournament?.rounds.at(-1)?.[0]?.winnerId).toBe(final.player2Id)
     })
   })
 })
