@@ -49,9 +49,11 @@ type WinnerVariables = {
 
 export const DashboardPage = () => {
   const { data: players = [] } = useQuery(playersQuery)
-  const { data: pendingMatches = [] } = useQuery(
-    matchesQuery({ status: MATCH_STATUS.pending }),
-  )
+  const { data: pendingMatches = [] } = useQuery({
+    ...matchesQuery({ status: MATCH_STATUS.pending }),
+    select: (matches) =>
+      matches.filter(({ tournamentId }) => tournamentId === null),
+  })
   const { data: recentMatches = [] } = useQuery(
     matchesQuery({
       status: MATCH_STATUS.completed,
@@ -190,17 +192,15 @@ export const DashboardPage = () => {
                           </span>
                         </Button>
                       ))}
-                      {match.tournamentId === null && (
-                        <Button
-                          size="icon-sm"
-                          variant="ghost"
-                          aria-label="Cancel match"
-                          disabled={isReporting}
-                          onClick={() => cancelMatch.mutate(match.id)}
-                        >
-                          <X />
-                        </Button>
-                      )}
+                      <Button
+                        size="icon-sm"
+                        variant="ghost"
+                        aria-label="Cancel match"
+                        disabled={isReporting}
+                        onClick={() => cancelMatch.mutate(match.id)}
+                      >
+                        <X />
+                      </Button>
                     </div>
                   </li>
                 )
