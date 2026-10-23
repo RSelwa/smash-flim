@@ -13,7 +13,7 @@ const NAV_ITEMS = [
 ]
 
 export const AppLayout = () => (
-  <div className="min-h-svh bg-muted/40">
+  <div className="min-h-svh">
     <header className="border-b bg-background">
       <div className="mx-auto flex max-w-6xl flex-wrap items-center gap-x-6 gap-y-3 px-4 py-3">
         <Link
