@@ -83,10 +83,7 @@ const FighterSlot = ({
           </div>
           {opponent && (
             <div className="flex flex-wrap justify-center gap-2">
-              <Badge
-                variant="secondary"
-                className="bg-green-500/10 text-green-700 tabular-nums dark:bg-green-500/20 dark:text-green-400"
-              >
+              <Badge variant="success" className="tabular-nums">
                 {formatEloDelta(getEloChange(player.elo, opponent.elo))} if wins
               </Badge>
               <Badge variant="destructive" className="tabular-nums">

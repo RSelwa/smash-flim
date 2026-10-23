@@ -9,6 +9,7 @@ import {
   YAxis,
 } from "recharts"
 import { MATCH_STATUS } from "@server/constants.ts"
+import type { Player } from "@server/schemas.ts"
 import {
   Card,
   CardContent,
@@ -29,6 +30,7 @@ import {
   EmptyHeader,
   EmptyTitle,
 } from "@/components/ui/empty"
+import { getEloHistory } from "@/lib/get-elo-history"
 import { getPlayerDataKey, getRankHistory } from "@/lib/get-rank-history"
 import { isCompletedMatch } from "@/lib/is-completed-match"
 import { matchesQuery, playersQuery } from "@/lib/queries"
@@ -45,6 +47,40 @@ const SERIES_COLORS = [
 ]
 const OVERFLOW_SERIES_COLOR = "var(--muted-foreground)"
 const NAME_LABEL_WIDTH = 96
+const ELO_AXIS_PADDING = 20
+
+type PlayerLegendProps = {
+  players: Player[]
+  hiddenPlayerIds: number[]
+  onToggle: (playerId: number) => void
+}
+
+const PlayerLegend = ({
+  players,
+  hiddenPlayerIds,
+  onToggle,
+}: PlayerLegendProps) => (
+  <div className="flex flex-wrap items-center justify-center gap-1 pt-3">
+    {players.map((player) => {
+      const dataKey = getPlayerDataKey(player.id)
+      return (
+        <button
+          key={dataKey}
+          type="button"
+          aria-pressed={!hiddenPlayerIds.includes(player.id)}
+          onClick={() => onToggle(player.id)}
+          className="group flex items-center gap-1.5 rounded-md px-1.5 py-0.5 text-sm hover:bg-muted aria-[pressed=false]:text-muted-foreground aria-[pressed=false]:line-through"
+        >
+          <span
+            className="size-2 shrink-0 rounded-[2px] group-aria-[pressed=false]:opacity-30"
+            style={{ backgroundColor: `var(--color-${dataKey})` }}
+          />
+          {player.name}
+        </button>
+      )
+    })}
+  </div>
+)
 
 export const RankingsPage = () => {
   const { data: players = [], isPending: isPlayersPending } =
@@ -57,7 +93,9 @@ export const RankingsPage = () => {
   const isPending = isPlayersPending || isMatchesPending
   if (isPending) return null
 
-  const rankHistory = getRankHistory(players, matches.filter(isCompletedMatch))
+  const completedMatches = matches.filter(isCompletedMatch)
+  const rankHistory = getRankHistory(players, completedMatches)
+  const eloHistory = getEloHistory(players, completedMatches)
   const latestSnapshot = rankHistory.at(-1)
   const rankedPlayers = players.filter(
     ({ id }) => latestSnapshot?.[getPlayerDataKey(id)] !== undefined,
@@ -83,109 +121,159 @@ export const RankingsPage = () => {
     )
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Ranking over time</CardTitle>
-        <CardDescription>
-          Leaderboard position after each match. Click a name to hide it.
-        </CardDescription>
-      </CardHeader>
-      <CardContent>
-        {rankHistory.length === 0 ? (
-          <Empty>
-            <EmptyHeader>
-              <EmptyTitle>No ranking yet</EmptyTitle>
-              <EmptyDescription>
-                Report a match to start the chart.
-              </EmptyDescription>
-            </EmptyHeader>
-          </Empty>
-        ) : (
-          <ChartContainer
-            config={chartConfig}
-            className="aspect-auto h-96 w-full"
-          >
-            <LineChart
-              data={rankHistory}
-              margin={{ left: 0, right: NAME_LABEL_WIDTH }}
+    <div className="grid gap-6">
+      <Card>
+        <CardHeader>
+          <CardTitle>Ranking over time</CardTitle>
+          <CardDescription>
+            Leaderboard position after each match. Click a name to hide it.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          {rankHistory.length === 0 ? (
+            <Empty>
+              <EmptyHeader>
+                <EmptyTitle>No ranking yet</EmptyTitle>
+                <EmptyDescription>
+                  Report a match to start the chart.
+                </EmptyDescription>
+              </EmptyHeader>
+            </Empty>
+          ) : (
+            <ChartContainer
+              config={chartConfig}
+              className="aspect-auto h-96 w-full"
             >
-              <CartesianGrid vertical={false} />
-              <XAxis dataKey="match" tickLine={false} axisLine={false} />
-              <YAxis
-                reversed
-                width={32}
-                tickLine={false}
-                axisLine={false}
-                domain={[1, rankedPlayers.length]}
-                ticks={rankTicks}
-                tickFormatter={(rank) => `#${rank}`}
-              />
-              <ChartTooltip
-                content={({ active, label, payload }) => (
-                  <ChartTooltipContent
-                    active={active}
-                    payload={payload.toSorted(
-                      (a, b) => Number(a.value) - Number(b.value),
-                    )}
-                    labelFormatter={() => `Match ${label}`}
-                  />
-                )}
-              />
-              <ChartLegend
-                content={() => (
-                  <div className="flex flex-wrap items-center justify-center gap-1 pt-3">
-                    {rankedPlayers.map((player) => {
-                      const dataKey = getPlayerDataKey(player.id)
-                      return (
-                        <button
-                          key={dataKey}
-                          type="button"
-                          aria-pressed={!hiddenPlayerIds.includes(player.id)}
-                          onClick={() => togglePlayer(player.id)}
-                          className="group flex items-center gap-1.5 rounded-md px-1.5 py-0.5 text-sm hover:bg-muted aria-[pressed=false]:text-muted-foreground aria-[pressed=false]:line-through"
-                        >
-                          <span
-                            className="size-2 shrink-0 rounded-[2px] group-aria-[pressed=false]:opacity-30"
-                            style={{
-                              backgroundColor: `var(--color-${dataKey})`,
-                            }}
-                          />
-                          {player.name}
-                        </button>
-                      )
-                    })}
-                  </div>
-                )}
-              />
-              {rankedPlayers.map((player) => {
-                const dataKey = getPlayerDataKey(player.id)
-                return (
-                  <Line
-                    key={dataKey}
-                    dataKey={dataKey}
-                    name={player.name}
-                    type="bumpX"
-                    stroke={`var(--color-${dataKey})`}
-                    strokeWidth={2}
-                    dot={false}
-                    hide={hiddenPlayerIds.includes(player.id)}
-                  >
-                    <LabelList
-                      dataKey={({ match }) =>
-                        match === latestSnapshot?.match
-                          ? player.name
-                          : undefined
-                      }
-                      position="right"
-                      className="fill-foreground"
+              <LineChart
+                data={rankHistory}
+                margin={{ left: 0, right: NAME_LABEL_WIDTH }}
+              >
+                <CartesianGrid vertical={false} />
+                <XAxis dataKey="match" tickLine={false} axisLine={false} />
+                <YAxis
+                  reversed
+                  width={32}
+                  tickLine={false}
+                  axisLine={false}
+                  domain={[1, rankedPlayers.length]}
+                  ticks={rankTicks}
+                  tickFormatter={(rank) => `#${rank}`}
+                />
+                <ChartTooltip
+                  content={({ active, label, payload }) => (
+                    <ChartTooltipContent
+                      active={active}
+                      payload={payload.toSorted(
+                        (a, b) => Number(a.value) - Number(b.value),
+                      )}
+                      labelFormatter={() => `Match ${label}`}
                     />
-                  </Line>
-                )
-              })}
-            </LineChart>
-          </ChartContainer>
-        )}
-      </CardContent>
-    </Card>
+                  )}
+                />
+                <ChartLegend
+                  content={() => (
+                    <PlayerLegend
+                      players={rankedPlayers}
+                      hiddenPlayerIds={hiddenPlayerIds}
+                      onToggle={togglePlayer}
+                    />
+                  )}
+                />
+                {rankedPlayers.map((player) => {
+                  const dataKey = getPlayerDataKey(player.id)
+                  return (
+                    <Line
+                      key={dataKey}
+                      dataKey={dataKey}
+                      name={player.name}
+                      type="bumpX"
+                      stroke={`var(--color-${dataKey})`}
+                      strokeWidth={2}
+                      dot={false}
+                      hide={hiddenPlayerIds.includes(player.id)}
+                    >
+                      <LabelList
+                        dataKey={({ match }) =>
+                          match === latestSnapshot?.match
+                            ? player.name
+                            : undefined
+                        }
+                        position="right"
+                        className="fill-foreground"
+                      />
+                    </Line>
+                  )
+                })}
+              </LineChart>
+            </ChartContainer>
+          )}
+        </CardContent>
+      </Card>
+      {eloHistory.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle>ELO over time</CardTitle>
+            <CardDescription>
+              Rating after each match, to see the gaps. Click a name to hide it.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <ChartContainer
+              config={chartConfig}
+              className="aspect-auto h-96 w-full"
+            >
+              <LineChart data={eloHistory}>
+                <CartesianGrid vertical={false} />
+                <XAxis dataKey="match" tickLine={false} axisLine={false} />
+                <YAxis
+                  width={40}
+                  tickLine={false}
+                  axisLine={false}
+                  domain={[
+                    `dataMin - ${ELO_AXIS_PADDING}`,
+                    `dataMax + ${ELO_AXIS_PADDING}`,
+                  ]}
+                />
+                <ChartTooltip
+                  content={({ active, label, payload }) => (
+                    <ChartTooltipContent
+                      active={active}
+                      payload={payload.toSorted(
+                        (a, b) => Number(b.value) - Number(a.value),
+                      )}
+                      labelFormatter={() => `Match ${label}`}
+                    />
+                  )}
+                />
+                <ChartLegend
+                  content={() => (
+                    <PlayerLegend
+                      players={rankedPlayers}
+                      hiddenPlayerIds={hiddenPlayerIds}
+                      onToggle={togglePlayer}
+                    />
+                  )}
+                />
+                {rankedPlayers.map((player) => {
+                  const dataKey = getPlayerDataKey(player.id)
+                  return (
+                    <Line
+                      key={dataKey}
+                      dataKey={dataKey}
+                      name={player.name}
+                      type="monotone"
+                      stroke={`var(--color-${dataKey})`}
+                      strokeWidth={2}
+                      dot={false}
+                      hide={hiddenPlayerIds.includes(player.id)}
+                    />
+                  )
+                })}
+              </LineChart>
+            </ChartContainer>
+          </CardContent>
+        </Card>
+      )}
+    </div>
   )
 }

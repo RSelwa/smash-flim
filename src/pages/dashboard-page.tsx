@@ -9,6 +9,7 @@ import { MatchArena } from "@/components/match-arena"
 import { MatchHistoryTable } from "@/components/match-history-table"
 import { PlayerAvatar } from "@/components/player-avatar"
 import { PlayerLink } from "@/components/player-link"
+import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import {
   Card,
@@ -34,7 +35,7 @@ import {
 } from "@/components/ui/table"
 import { ROUTE_PATH } from "@/constants/routes"
 import { client } from "@/lib/api"
-import { formatWinRate } from "@/lib/format"
+import { formatEloDelta, formatWinRate } from "@/lib/format"
 import { isCompletedMatch } from "@/lib/is-completed-match"
 import { matchesQuery, playersQuery } from "@/lib/queries"
 
@@ -127,16 +128,39 @@ export const DashboardPage = () => {
                       {fighters.map((fighter) => (
                         <span
                           key={fighter.id}
-                          className="flex min-w-0 items-center gap-2 font-medium even:flex-row-reverse even:text-right"
+                          className="group flex min-w-0 items-center gap-2 font-medium even:flex-row-reverse even:text-right"
                         >
                           <PlayerAvatar
                             name={fighter.name}
                             character={fighter.character}
                           />
-                          <span className="truncate">
-                            {fighter.name}{" "}
-                            <span className="text-muted-foreground tabular-nums">
-                              {fighter.elo}
+                          <span className="grid min-w-0 gap-1">
+                            <span className="truncate">
+                              {fighter.name}{" "}
+                              <span className="text-muted-foreground tabular-nums">
+                                {fighter.elo}
+                              </span>
+                            </span>
+                            <span className="flex gap-1 group-even:justify-end">
+                              <Badge variant="success" className="tabular-nums">
+                                {formatEloDelta(
+                                  getEloChange(
+                                    fighter.elo,
+                                    fighter.opponentElo,
+                                  ),
+                                )}
+                              </Badge>
+                              <Badge
+                                variant="destructive"
+                                className="tabular-nums"
+                              >
+                                {formatEloDelta(
+                                  -getEloChange(
+                                    fighter.opponentElo,
+                                    fighter.elo,
+                                  ),
+                                )}
+                              </Badge>
                             </span>
                           </span>
                         </span>
