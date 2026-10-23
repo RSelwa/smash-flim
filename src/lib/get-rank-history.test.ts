@@ -96,6 +96,16 @@ describe("getRankHistory", () => {
     ])
   })
 
+  it("should move a player up a place when the one above is left out", () => {
+    const kirby = createPlayer(3, "Kirby")
+
+    const [withKirby] = getRankHistory([mario, kirby, link], newestFirstMatches)
+    const [withoutKirby] = getRankHistory([mario, link], newestFirstMatches)
+
+    expect(withKirby).toHaveProperty("player-1", 3)
+    expect(withoutKirby).toEqual({ match: 1, "player-2": 1, "player-1": 2 })
+  })
+
   it("should break an ELO tie by name", () => {
     const zelda = createPlayer(3, "Zelda")
     const bowser = createPlayer(4, "Bowser")

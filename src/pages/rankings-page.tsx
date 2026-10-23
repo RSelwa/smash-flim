@@ -129,42 +129,47 @@ export const RankingsPage = () => {
   )
   const [hiddenPlayerIds, setHiddenPlayerIds] = useState<number[]>([])
 
-  const { rankedPlayers, rankRows, eloRows, eloFloor } = useMemo(() => {
-    const completedMatches = matches.filter(isCompletedMatch)
-    const rankHistory = getRankHistory(players, completedMatches)
-    const eloHistory = getEloHistory(players, completedMatches)
-    const latestSnapshot = rankHistory.at(-1)
-    const rankedPlayers = players.filter(
-      ({ id }) => latestSnapshot?.[getPlayerDataKey(id)] !== undefined,
-    )
-    const dataKeys = rankedPlayers.map(({ id }) => getPlayerDataKey(id))
-    const eloFloor = getEloFloor(
-      eloHistory.flatMap((snapshot) =>
-        dataKeys.map((key) => snapshot[key] ?? STARTING_ELO),
-      ),
-    )
-    return {
-      rankedPlayers,
-      eloFloor,
-      rankRows: rankHistory.map((snapshot) =>
-        toChartRow(snapshot, dataKeys, (rank) =>
-          rank === undefined ? 0 : rankedPlayers.length + 1 - rank,
+  const { chartPlayers, visiblePlayers, rankRows, eloRows, eloFloor } =
+    useMemo(() => {
+      const completedMatches = matches.filter(isCompletedMatch)
+      const eloHistory = getEloHistory(players, completedMatches)
+      const latestSnapshot = eloHistory.at(-1)
+      const chartPlayers = players.filter(
+        ({ id }) => latestSnapshot?.[getPlayerDataKey(id)] !== undefined,
+      )
+      const visiblePlayers = chartPlayers.filter(
+        ({ id }) => !hiddenPlayerIds.includes(id),
+      )
+      const rankHistory = getRankHistory(visiblePlayers, completedMatches)
+      const dataKeys = visiblePlayers.map(({ id }) => getPlayerDataKey(id))
+      const eloFloor = getEloFloor(
+        eloHistory.flatMap((snapshot) =>
+          dataKeys.map((key) => snapshot[key] ?? STARTING_ELO),
         ),
-      ),
-      eloRows: eloHistory.map((snapshot) =>
-        toChartRow(
-          snapshot,
-          dataKeys,
-          (elo) => (elo ?? STARTING_ELO) - eloFloor,
+      )
+      return {
+        chartPlayers,
+        visiblePlayers,
+        eloFloor,
+        rankRows: rankHistory.map((snapshot) =>
+          toChartRow(snapshot, dataKeys, (rank) =>
+            rank === undefined ? 0 : visiblePlayers.length + 1 - rank,
+          ),
         ),
-      ),
-    }
-  }, [players, matches])
+        eloRows: eloHistory.map((snapshot) =>
+          toChartRow(
+            snapshot,
+            dataKeys,
+            (elo) => (elo ?? STARTING_ELO) - eloFloor,
+          ),
+        ),
+      }
+    }, [players, matches, hiddenPlayerIds])
 
   const isPending = isPlayersPending || isMatchesPending
   if (isPending) return null
 
-  const rankCount = rankedPlayers.length
+  const rankCount = visiblePlayers.length
   const playerColors = new Map(
     players
       .toSorted((a, b) => a.id - b.id)
@@ -173,16 +178,12 @@ export const RankingsPage = () => {
           [id, SERIES_COLORS[index % SERIES_COLORS.length]] as const,
       ),
   )
-  const visibleDataKeys = rankedPlayers
-    .filter(({ id }) => !hiddenPlayerIds.includes(id))
-    .map(({ id }) => getPlayerDataKey(id))
+  const visibleDataKeys = visiblePlayers.map(({ id }) => getPlayerDataKey(id))
   const chartConfig = Object.fromEntries(
-    rankedPlayers
-      .filter(({ id }) => !hiddenPlayerIds.includes(id))
-      .map((player) => [
-        getPlayerDataKey(player.id),
-        { label: player.name, color: playerColors.get(player.id) ?? "grey" },
-      ]),
+    visiblePlayers.map((player) => [
+      getPlayerDataKey(player.id),
+      { label: player.name, color: playerColors.get(player.id) ?? "grey" },
+    ]),
   ) satisfies ChartConfig
 
   const formatRank = (value: number) => {
@@ -200,7 +201,7 @@ export const RankingsPage = () => {
 
   const playerLegend = (
     <PlayerLegend
-      players={rankedPlayers}
+      players={chartPlayers}
       playerColors={playerColors}
       hiddenPlayerIds={hiddenPlayerIds}
       onToggle={togglePlayer}
@@ -213,7 +214,8 @@ export const RankingsPage = () => {
         <CardHeader>
           <CardTitle>Ranking over time</CardTitle>
           <CardDescription>
-            Leaderboard position after each match. Click a name to hide it.
+            Leaderboard position after each match. Click a name to leave it out
+            of the ranking.
           </CardDescription>
         </CardHeader>
         <CardContent>
