@@ -1,3 +1,4 @@
+import { useState } from "react"
 import { useQuery } from "@tanstack/react-query"
 import {
   CartesianGrid,
@@ -19,7 +20,6 @@ import {
   type ChartConfig,
   ChartContainer,
   ChartLegend,
-  ChartLegendContent,
   ChartTooltip,
   ChartTooltipContent,
 } from "@/components/ui/chart"
@@ -52,6 +52,7 @@ export const RankingsPage = () => {
   const { data: matches = [], isPending: isMatchesPending } = useQuery(
     matchesQuery({ status: MATCH_STATUS.completed }),
   )
+  const [hiddenPlayerIds, setHiddenPlayerIds] = useState<number[]>([])
 
   const isPending = isPlayersPending || isMatchesPending
   if (isPending) return null
@@ -74,11 +75,20 @@ export const RankingsPage = () => {
       }),
   ) satisfies ChartConfig
 
+  const togglePlayer = (playerId: number) =>
+    setHiddenPlayerIds((current) =>
+      current.includes(playerId)
+        ? current.filter((id) => id !== playerId)
+        : [...current, playerId],
+    )
+
   return (
     <Card>
       <CardHeader>
         <CardTitle>Ranking over time</CardTitle>
-        <CardDescription>Leaderboard position after each match</CardDescription>
+        <CardDescription>
+          Leaderboard position after each match. Click a name to hide it.
+        </CardDescription>
       </CardHeader>
       <CardContent>
         {rankHistory.length === 0 ? (
@@ -122,7 +132,30 @@ export const RankingsPage = () => {
                 )}
               />
               <ChartLegend
-                content={<ChartLegendContent className="flex-wrap" />}
+                content={() => (
+                  <div className="flex flex-wrap items-center justify-center gap-1 pt-3">
+                    {rankedPlayers.map((player) => {
+                      const dataKey = getPlayerDataKey(player.id)
+                      return (
+                        <button
+                          key={dataKey}
+                          type="button"
+                          aria-pressed={!hiddenPlayerIds.includes(player.id)}
+                          onClick={() => togglePlayer(player.id)}
+                          className="group flex items-center gap-1.5 rounded-md px-1.5 py-0.5 text-sm hover:bg-muted aria-[pressed=false]:text-muted-foreground aria-[pressed=false]:line-through"
+                        >
+                          <span
+                            className="size-2 shrink-0 rounded-[2px] group-aria-[pressed=false]:opacity-30"
+                            style={{
+                              backgroundColor: `var(--color-${dataKey})`,
+                            }}
+                          />
+                          {player.name}
+                        </button>
+                      )
+                    })}
+                  </div>
+                )}
               />
               {rankedPlayers.map((player) => {
                 const dataKey = getPlayerDataKey(player.id)
@@ -135,6 +168,7 @@ export const RankingsPage = () => {
                     stroke={`var(--color-${dataKey})`}
                     strokeWidth={2}
                     dot={false}
+                    hide={hiddenPlayerIds.includes(player.id)}
                   >
                     <LabelList
                       dataKey={({ match }) =>
