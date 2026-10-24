@@ -17,6 +17,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card"
+import { addFighterToSlots } from "@/lib/add-fighter-to-slots"
 import { client } from "@/lib/api"
 import { formatEloDelta } from "@/lib/format"
 import { playersQuery } from "@/lib/queries"
@@ -136,7 +137,7 @@ export const MatchArena = () => {
       <CardHeader>
         <CardTitle>Arena</CardTitle>
         <CardDescription>
-          Drag two fighters into the arena, then start the match.
+          Drag or click two fighters into the arena, then start the match.
         </CardDescription>
       </CardHeader>
       <CardContent className="grid gap-4">
@@ -150,7 +151,7 @@ export const MatchArena = () => {
             }))
           }}
         >
-          <div className="relative grid auto-rows-fr gap-4 sm:grid-cols-2">
+          <div className="relative grid auto-rows-fr grid-cols-2 gap-4">
             {SLOTS.map(({ id, label, opponentId }) => (
               <FighterSlot
                 key={id}
@@ -178,6 +179,9 @@ export const MatchArena = () => {
                   key={player.id}
                   player={player}
                   disabled={playersInArena.has(player.id)}
+                  onClick={() =>
+                    setSlots((current) => addFighterToSlots(current, player.id))
+                  }
                 />
               ))}
             </div>

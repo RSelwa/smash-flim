@@ -2,7 +2,7 @@ import { useState } from "react"
 import { DragDropProvider, useDroppable } from "@dnd-kit/react"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { type InferRequestType, parseResponse } from "hono/client"
-import { Shuffle, X } from "lucide-react"
+import { Shuffle, UsersRound, X } from "lucide-react"
 import { generatePath, Link, useNavigate } from "react-router"
 import { toast } from "sonner"
 import { MIN_TOURNAMENT_PLAYERS } from "@server/constants.ts"
@@ -114,6 +114,7 @@ export const TournamentsPage = () => {
   const findPlayer = (playerId: number | null) =>
     players.find((player) => player.id === playerId)
   const participants = players.filter(({ id }) => participantIds.includes(id))
+  const isEveryPlayerIn = participants.length === players.length
   const hasEnoughParticipants = participants.length >= MIN_TOURNAMENT_PLAYERS
   const canDraw = hasEnoughParticipants && !createTournament.isPending
 
@@ -123,8 +124,8 @@ export const TournamentsPage = () => {
         <CardHeader>
           <CardTitle>New tournament</CardTitle>
           <CardDescription>
-            Drag the participants in, then draw the bracket. The best ELO are
-            seeded and get the byes, the rest is drawn at random.
+            Drag or click the participants in, then draw the bracket. The best
+            ELO are seeded and get the byes, the rest is drawn at random.
           </CardDescription>
         </CardHeader>
         <CardContent className="grid gap-4">
@@ -150,11 +151,23 @@ export const TournamentsPage = () => {
               </p>
             ) : (
               <div className="flex flex-wrap gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={isEveryPlayerIn}
+                  onClick={() => setParticipantIds(players.map(({ id }) => id))}
+                >
+                  <UsersRound data-icon="inline-start" />
+                  Select all
+                </Button>
                 {players.map((player) => (
                   <DraggableFighter
                     key={player.id}
                     player={player}
                     disabled={participantIds.includes(player.id)}
+                    onClick={() =>
+                      setParticipantIds((current) => [...current, player.id])
+                    }
                   />
                 ))}
               </div>

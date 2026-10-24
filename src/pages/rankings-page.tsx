@@ -32,6 +32,7 @@ import {
 } from "@/components/ui/empty"
 import { getEloFloor } from "@/lib/get-elo-floor"
 import { getEloHistory } from "@/lib/get-elo-history"
+import { getHiddenPlayerIds } from "@/lib/get-hidden-player-ids"
 import { getPlayerDataKey, getRankHistory } from "@/lib/get-rank-history"
 import { isCompletedMatch } from "@/lib/is-completed-match"
 import { matchesQuery, playersQuery } from "@/lib/queries"
@@ -127,44 +128,52 @@ export const RankingsPage = () => {
   const { data: matches = [], isPending: isMatchesPending } = useQuery(
     matchesQuery({ status: MATCH_STATUS.completed }),
   )
-  const [hiddenPlayerIds, setHiddenPlayerIds] = useState<number[]>([])
+  const [toggledPlayerIds, setToggledPlayerIds] = useState<number[]>([])
 
-  const { chartPlayers, visiblePlayers, rankRows, eloRows, eloFloor } =
-    useMemo(() => {
-      const completedMatches = matches.filter(isCompletedMatch)
-      const eloHistory = getEloHistory(players, completedMatches)
-      const latestSnapshot = eloHistory.at(-1)
-      const chartPlayers = players.filter(
-        ({ id }) => latestSnapshot?.[getPlayerDataKey(id)] !== undefined,
-      )
-      const visiblePlayers = chartPlayers.filter(
-        ({ id }) => !hiddenPlayerIds.includes(id),
-      )
-      const rankHistory = getRankHistory(visiblePlayers, completedMatches)
-      const dataKeys = visiblePlayers.map(({ id }) => getPlayerDataKey(id))
-      const eloFloor = getEloFloor(
-        eloHistory.flatMap((snapshot) =>
-          dataKeys.map((key) => snapshot[key] ?? STARTING_ELO),
+  const {
+    chartPlayers,
+    visiblePlayers,
+    hiddenPlayerIds,
+    rankRows,
+    eloRows,
+    eloFloor,
+  } = useMemo(() => {
+    const completedMatches = matches.filter(isCompletedMatch)
+    const eloHistory = getEloHistory(players, completedMatches)
+    const latestSnapshot = eloHistory.at(-1)
+    const chartPlayers = players.filter(
+      ({ id }) => latestSnapshot?.[getPlayerDataKey(id)] !== undefined,
+    )
+    const hiddenPlayerIds = getHiddenPlayerIds(chartPlayers, toggledPlayerIds)
+    const visiblePlayers = chartPlayers.filter(
+      ({ id }) => !hiddenPlayerIds.includes(id),
+    )
+    const rankHistory = getRankHistory(visiblePlayers, completedMatches)
+    const dataKeys = visiblePlayers.map(({ id }) => getPlayerDataKey(id))
+    const eloFloor = getEloFloor(
+      eloHistory.flatMap((snapshot) =>
+        dataKeys.map((key) => snapshot[key] ?? STARTING_ELO),
+      ),
+    )
+    return {
+      chartPlayers,
+      visiblePlayers,
+      hiddenPlayerIds,
+      eloFloor,
+      rankRows: rankHistory.map((snapshot) =>
+        toChartRow(snapshot, dataKeys, (rank) =>
+          rank === undefined ? 0 : visiblePlayers.length + 1 - rank,
         ),
-      )
-      return {
-        chartPlayers,
-        visiblePlayers,
-        eloFloor,
-        rankRows: rankHistory.map((snapshot) =>
-          toChartRow(snapshot, dataKeys, (rank) =>
-            rank === undefined ? 0 : visiblePlayers.length + 1 - rank,
-          ),
+      ),
+      eloRows: eloHistory.map((snapshot) =>
+        toChartRow(
+          snapshot,
+          dataKeys,
+          (elo) => (elo ?? STARTING_ELO) - eloFloor,
         ),
-        eloRows: eloHistory.map((snapshot) =>
-          toChartRow(
-            snapshot,
-            dataKeys,
-            (elo) => (elo ?? STARTING_ELO) - eloFloor,
-          ),
-        ),
-      }
-    }, [players, matches, hiddenPlayerIds])
+      ),
+    }
+  }, [players, matches, toggledPlayerIds])
 
   const isPending = isPlayersPending || isMatchesPending
   if (isPending) return null
@@ -193,7 +202,7 @@ export const RankingsPage = () => {
   const formatElo = (value: number) => String(value + eloFloor)
 
   const togglePlayer = (playerId: number) =>
-    setHiddenPlayerIds((current) =>
+    setToggledPlayerIds((current) =>
       current.includes(playerId)
         ? current.filter((id) => id !== playerId)
         : [...current, playerId],

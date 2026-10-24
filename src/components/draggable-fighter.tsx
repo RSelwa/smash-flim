@@ -5,11 +5,13 @@ import { PlayerAvatar } from "@/components/player-avatar"
 type DraggableFighterProps = {
   player: Player
   disabled: boolean
+  onClick: () => void
 }
 
 export const DraggableFighter = ({
   player,
   disabled,
+  onClick,
 }: DraggableFighterProps) => {
   const { ref, isDragging } = useDraggable({ id: player.id, disabled })
 
@@ -18,6 +20,7 @@ export const DraggableFighter = ({
       ref={ref}
       type="button"
       disabled={disabled}
+      onClick={onClick}
       data-dragging={isDragging || undefined}
       className="flex cursor-grab touch-none items-center gap-2 rounded-full border bg-background py-1 pr-3 pl-1 text-sm font-medium shadow-xs select-none disabled:cursor-not-allowed disabled:opacity-40 data-dragging:cursor-grabbing data-dragging:shadow-lg"
     >
