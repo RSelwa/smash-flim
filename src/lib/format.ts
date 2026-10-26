@@ -6,6 +6,10 @@ const dateFormatter = new Intl.DateTimeFormat(undefined, {
   dateStyle: "medium",
   timeStyle: "short",
 })
+const dayFormatter = new Intl.DateTimeFormat(undefined, {
+  month: "short",
+  day: "numeric",
+})
 const percentFormatter = new Intl.NumberFormat(undefined, { style: "percent" })
 const signedFormatter = new Intl.NumberFormat(undefined, {
   signDisplay: "exceptZero",
@@ -13,6 +17,9 @@ const signedFormatter = new Intl.NumberFormat(undefined, {
 
 export const formatDate = (isoDate: string) =>
   dateFormatter.format(new Date(isoDate))
+
+export const formatDay = (isoDate: string) =>
+  dayFormatter.format(new Date(isoDate))
 
 export const formatEloDelta = (delta: number) => signedFormatter.format(delta)
 

@@ -17,8 +17,10 @@ import {
 import { Tooltip } from "@/components/dither-kit/tooltip"
 import { XAxis } from "@/components/dither-kit/x-axis"
 import { YAxis } from "@/components/dither-kit/y-axis"
+import { Button } from "@/components/ui/button"
 import {
   Card,
+  CardAction,
   CardContent,
   CardDescription,
   CardHeader,
@@ -33,6 +35,7 @@ import {
 import { getEloFloor } from "@/lib/get-elo-floor"
 import { getEloHistory } from "@/lib/get-elo-history"
 import { getHiddenPlayerIds } from "@/lib/get-hidden-player-ids"
+import { getPlayDays } from "@/lib/get-play-days"
 import { getPlayerDataKey, getRankHistory } from "@/lib/get-rank-history"
 import { isCompletedMatch } from "@/lib/is-completed-match"
 import { matchesQuery, playersQuery } from "@/lib/queries"
@@ -53,11 +56,12 @@ type Snapshot = Record<string, number> & { match: number }
 
 const toChartRow = (
   snapshot: Snapshot,
+  label: string,
   dataKeys: string[],
   toValue: (value: number | undefined) => number,
 ) => ({
   match: snapshot.match,
-  label: `Match ${snapshot.match}`,
+  label,
   ...Object.fromEntries(dataKeys.map((key) => [key, toValue(snapshot[key])])),
 })
 
@@ -129,6 +133,7 @@ export const RankingsPage = () => {
     matchesQuery({ status: MATCH_STATUS.completed }),
   )
   const [toggledPlayerIds, setToggledPlayerIds] = useState<number[]>([])
+  const [isByDate, setIsByDate] = useState(false)
 
   const {
     chartPlayers,
@@ -149,10 +154,16 @@ export const RankingsPage = () => {
       ({ id }) => !hiddenPlayerIds.includes(id),
     )
     const rankHistory = getRankHistory(visiblePlayers, completedMatches)
+    const points = isByDate
+      ? getPlayDays(completedMatches)
+      : eloHistory.map(({ match }, snapshotIndex) => ({
+          label: `Match ${match}`,
+          snapshotIndex,
+        }))
     const dataKeys = visiblePlayers.map(({ id }) => getPlayerDataKey(id))
     const eloFloor = getEloFloor(
-      eloHistory.flatMap((snapshot) =>
-        dataKeys.map((key) => snapshot[key] ?? STARTING_ELO),
+      points.flatMap(({ snapshotIndex }) =>
+        dataKeys.map((key) => eloHistory[snapshotIndex][key] ?? STARTING_ELO),
       ),
     )
     return {
@@ -160,20 +171,21 @@ export const RankingsPage = () => {
       visiblePlayers,
       hiddenPlayerIds,
       eloFloor,
-      rankRows: rankHistory.map((snapshot) =>
-        toChartRow(snapshot, dataKeys, (rank) =>
+      rankRows: points.map(({ label, snapshotIndex }) =>
+        toChartRow(rankHistory[snapshotIndex], label, dataKeys, (rank) =>
           rank === undefined ? 0 : visiblePlayers.length + 1 - rank,
         ),
       ),
-      eloRows: eloHistory.map((snapshot) =>
+      eloRows: points.map(({ label, snapshotIndex }) =>
         toChartRow(
-          snapshot,
+          eloHistory[snapshotIndex],
+          label,
           dataKeys,
           (elo) => (elo ?? STARTING_ELO) - eloFloor,
         ),
       ),
     }
-  }, [players, matches, toggledPlayerIds])
+  }, [players, matches, toggledPlayerIds, isByDate])
 
   const isPending = isPlayersPending || isMatchesPending
   if (isPending) return null
@@ -208,6 +220,33 @@ export const RankingsPage = () => {
         : [...current, playerId],
     )
 
+  const xAxisKey = isByDate ? "label" : "match"
+  const snapshotMoment = isByDate
+    ? "at the end of each day"
+    : "after each match"
+  const xAxisToggle = (
+    <CardAction className="flex gap-1">
+      <Button
+        variant="ghost"
+        size="xs"
+        aria-pressed={!isByDate}
+        onClick={() => setIsByDate(false)}
+        className="text-muted-foreground aria-pressed:bg-muted aria-pressed:text-foreground"
+      >
+        By match
+      </Button>
+      <Button
+        variant="ghost"
+        size="xs"
+        aria-pressed={isByDate}
+        onClick={() => setIsByDate(true)}
+        className="text-muted-foreground aria-pressed:bg-muted aria-pressed:text-foreground"
+      >
+        By date
+      </Button>
+    </CardAction>
+  )
+
   const playerLegend = (
     <PlayerLegend
       players={chartPlayers}
@@ -223,9 +262,10 @@ export const RankingsPage = () => {
         <CardHeader>
           <CardTitle>Ranking over time</CardTitle>
           <CardDescription>
-            Leaderboard position after each match. Click a name to leave it out
+            Leaderboard position {snapshotMoment}. Click a name to leave it out
             of the ranking.
           </CardDescription>
+          {xAxisToggle}
         </CardHeader>
         <CardContent>
           {rankRows.length === 0 ? (
@@ -245,7 +285,7 @@ export const RankingsPage = () => {
                   config={chartConfig}
                   margins={{ right: NAME_LABEL_WIDTH }}
                 >
-                  <XAxis dataKey="match" />
+                  <XAxis dataKey={xAxisKey} />
                   <YAxis tickCount={rankCount} tickFormatter={formatRank} />
                   <Tooltip labelKey="label" valueFormatter={formatRank} />
                   {visibleDataKeys.map((dataKey) => (
@@ -264,14 +304,15 @@ export const RankingsPage = () => {
           <CardHeader>
             <CardTitle>ELO over time</CardTitle>
             <CardDescription>
-              Rating after each match, to see the gaps. Click a name to hide it.
+              Rating {snapshotMoment}, to see the gaps. Click a name to hide it.
             </CardDescription>
+            {xAxisToggle}
           </CardHeader>
           <CardContent>
             <div className="h-96">
               <LineChart data={eloRows} config={chartConfig}>
                 <Grid />
-                <XAxis dataKey="match" />
+                <XAxis dataKey={xAxisKey} />
                 <YAxis tickFormatter={formatElo} />
                 <Tooltip labelKey="label" valueFormatter={formatElo} />
                 {visibleDataKeys.map((dataKey) => (
