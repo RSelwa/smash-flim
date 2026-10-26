@@ -26,13 +26,11 @@ const getResult = (match: CompletedMatch) => {
     id: match.player1Id,
     name: match.player1Name,
     character: match.player1Character,
-    eloBefore: match.player1EloBefore,
   }
   const player2 = {
     id: match.player2Id,
     name: match.player2Name,
     character: match.player2Character,
-    eloBefore: match.player2EloBefore,
   }
   const isPlayer1Winner = match.winnerId === match.player1Id
   return isPlayer1Winner
@@ -75,25 +73,29 @@ export const MatchHistoryTable = ({ matches }: MatchHistoryTableProps) => {
               <TableCell className="text-muted-foreground">
                 {formatDate(match.playedAt)}
               </TableCell>
-              <TableCell>
-                <PlayerLink
-                  id={winner.id}
-                  name={winner.name}
-                  character={winner.character}
-                />{" "}
-                <span className="text-muted-foreground tabular-nums">
-                  {winner.eloBefore + match.eloChange}
-                </span>
+              <TableCell className="bg-green-500/10 dark:bg-green-500/20">
+                <div className="flex items-center justify-between gap-2">
+                  <PlayerLink
+                    id={winner.id}
+                    name={winner.name}
+                    character={winner.character}
+                  />
+                  <span className="text-green-700 tabular-nums dark:text-green-400">
+                    {formatEloDelta(match.eloChange)}
+                  </span>
+                </div>
               </TableCell>
-              <TableCell>
-                <PlayerLink
-                  id={loser.id}
-                  name={loser.name}
-                  character={loser.character}
-                />{" "}
-                <span className="text-muted-foreground tabular-nums">
-                  {loser.eloBefore - match.eloChange}
-                </span>
+              <TableCell className="bg-destructive/10 dark:bg-destructive/20">
+                <div className="flex items-center justify-between gap-2">
+                  <PlayerLink
+                    id={loser.id}
+                    name={loser.name}
+                    character={loser.character}
+                  />
+                  <span className="text-destructive tabular-nums">
+                    {formatEloDelta(-match.eloChange)}
+                  </span>
+                </div>
               </TableCell>
               <TableCell className="text-right font-medium tabular-nums">
                 {formatEloDelta(match.eloChange)}
