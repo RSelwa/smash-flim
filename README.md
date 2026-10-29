@@ -19,10 +19,26 @@ one SQLite file.
    "Ongoing matches"; the winner moves up on their own. They cannot be
    cancelled.
 
-ELO uses K = 32: `change = round(32 × (1 − expected))`, where
-`expected = 1 / (1 + 10^((loser − winner) / 400))`. The winner gains what the
-loser drops. Every match stores both ratings before the game, so the history
-and the per-player chart are exact.
+ELO is refitted from the whole history after every result, not updated one
+match at a time: the ratings are the ones that best explain every result
+together (Bradley–Terry, on the ELO scale: `expected = 1 / (1 + 10^((opponent −
+player) / 400))`). The order results came in no longer matters, so losing to the
+best player before their level showed costs nothing extra. Two settings in
+`server/elo.ts` shape it:
+
+- `RATING_SPREAD = 250`: everyone starts at 1000 and needs results to move away
+  from it, which keeps a 12–0 record finite.
+- `HALF_LIFE_DAYS = 60`: a result counts half as much 60 days later, so
+  progress shows.
+
+A result can move players who did not play it, and the winner and loser no
+longer move by the same amount. Every match stores each player's rating before
+the game and their change.
+
+Classic ELO is still computed alongside, in `players.classic_elo`: K = 32,
+`change = round(32 × (1 − expected))`, the winner gains what the loser drops and
+only the two players move. The rankings charts switch between the two with
+"New ELO" / "Classic ELO"; everything else uses the new one.
 
 ## Develop
 
@@ -42,7 +58,11 @@ pnpm dev        # Vite on :5173, API on :3000 (proxied under /api)
 | `pnpm build`     | typecheck + Vite build into `dist/`     |
 | `pnpm start`     | runs the API on `PORT` (default 3000)   |
 
-The database lives in `data/smash.db` by default (`DATABASE_PATH` overrides it).
+The database lives in `data/smash-v2.db` by default (`DATABASE_PATH` overrides it).
+`data/smash.db` is the frozen database of the incremental-ELO era. To build the
+current one from it, copy it and replay every result through the rating fit:
+`node server/seed-database.ts data/smash.db data/smash-v2.db` (it refuses to
+overwrite an existing target).
 Schema changes are numbered migrations in `server/db.ts`, tracked with
 `pragma user_version`: append one, never edit a shipped one.
 
@@ -55,7 +75,7 @@ Nintendo's artwork: fine for an internal tool, keep the repo private.
 ```
 browser ──► nginx  flim-smash.raphael-selwa.com
               ├─ /        → /var/www/smash-flim/dist   (Vite build)
-              └─ /api/*   → 127.0.0.1:3010 → Node (pm2) → data/smash.db
+              └─ /api/*   → 127.0.0.1:3010 → Node (pm2) → data/smash-v2.db
 ```
 
 Every push to `main` runs `.github/workflows/deploy.yml`: install, lint, test
@@ -84,7 +104,7 @@ The API listens on `127.0.0.1:3010` only, so nginx is the one way in.
 report results. To lock it, add `auth_basic` to the nginx server block.
 
 Backup, from `/var/www/smash-flim`:
-`node -e "require('node:sqlite').backup(new (require('node:sqlite').DatabaseSync)('data/smash.db'), 'data/backup.db')"`.
+`node -e "require('node:sqlite').backup(new (require('node:sqlite').DatabaseSync)('data/smash-v2.db'), 'data/backup.db')"`.
 
 ## API
 

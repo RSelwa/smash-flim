@@ -1,6 +1,6 @@
 import { DatabaseSync } from "node:sqlite"
 import { z } from "zod"
-import { SQL_NOW } from "./constants.ts"
+import { SQL_NOW, STARTING_ELO } from "./constants.ts"
 
 const MIGRATIONS = [
   `
@@ -49,6 +49,13 @@ const MIGRATIONS = [
 
   create unique index matches_tournament_node
     on matches (tournament_id, tournament_round, tournament_position);
+  `,
+  `
+  alter table players add column classic_elo integer not null default ${STARTING_ELO};
+  update players set classic_elo = elo;
+  alter table matches add column player1_elo_change integer;
+  alter table matches add column player2_elo_change integer;
+  alter table matches drop column elo_change;
   `,
 ]
 

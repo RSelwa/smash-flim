@@ -79,17 +79,19 @@ const matchBaseSchema = z.object({
 const pendingMatchSchema = matchBaseSchema.extend({
   winnerId: z.null(),
   playedAt: z.null(),
-  eloChange: z.null(),
   player1EloBefore: z.null(),
   player2EloBefore: z.null(),
+  player1EloChange: z.null(),
+  player2EloChange: z.null(),
 })
 
 const completedMatchSchema = matchBaseSchema.extend({
   winnerId: z.number(),
   playedAt: z.string(),
-  eloChange: z.number(),
   player1EloBefore: z.number(),
   player2EloBefore: z.number(),
+  player1EloChange: z.number(),
+  player2EloChange: z.number(),
 })
 
 export const matchSchema = z.union([pendingMatchSchema, completedMatchSchema])
@@ -99,8 +101,7 @@ export const playedMatchSchema = completedMatchSchema.pick({
   player1Id: true,
   player2Id: true,
   winnerId: true,
-  player1EloBefore: true,
-  player2EloBefore: true,
+  playedAt: true,
 })
 
 export type Character = z.infer<typeof characterSchema>

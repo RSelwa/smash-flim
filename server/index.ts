@@ -5,7 +5,10 @@ import { createApp } from "./app.ts"
 import { openDatabase } from "./db.ts"
 
 const DEFAULT_PORT = 3000
-const DEFAULT_DATABASE_PATH = path.join(import.meta.dirname, "../data/smash.db")
+const DEFAULT_DATABASE_PATH = path.join(
+  import.meta.dirname,
+  "../data/smash-v2.db",
+)
 const SHUTDOWN_SIGNALS = ["SIGINT", "SIGTERM"] as const
 
 const databasePath = process.env.DATABASE_PATH ?? DEFAULT_DATABASE_PATH

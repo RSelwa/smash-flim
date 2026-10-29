@@ -4,7 +4,6 @@ import { useMutation, useQuery } from "@tanstack/react-query"
 import { type InferRequestType, parseResponse } from "hono/client"
 import { Swords, X } from "lucide-react"
 import { toast } from "sonner"
-import { getEloChange } from "@server/elo.ts"
 import type { Player } from "@server/schemas.ts"
 import { DraggableFighter } from "@/components/draggable-fighter"
 import { PlayerAvatar } from "@/components/player-avatar"
@@ -20,7 +19,8 @@ import {
 import { addFighterToSlots } from "@/lib/add-fighter-to-slots"
 import { client } from "@/lib/api"
 import { formatEloDelta } from "@/lib/format"
-import { playersQuery } from "@/lib/queries"
+import { getEloStakes } from "@/lib/get-elo-stakes"
+import { completedMatchesQuery, playersQuery } from "@/lib/queries"
 
 const SLOTS = [
   { id: "player1", label: "Player 1", opponentId: "player2" },
@@ -50,6 +50,9 @@ const FighterSlot = ({
   onClear,
 }: FighterSlotProps) => {
   const { ref, isDropTarget } = useDroppable({ id })
+  const { data: completedMatches = [] } = useQuery(completedMatchesQuery)
+  const stakes =
+    player && opponent && getEloStakes(completedMatches, player, opponent)
 
   return (
     <div
@@ -82,14 +85,13 @@ const FighterSlot = ({
               {player.elo} ELO
             </p>
           </div>
-          {opponent && (
+          {stakes && (
             <div className="flex flex-wrap justify-center gap-2">
               <Badge variant="success" className="tabular-nums">
-                {formatEloDelta(getEloChange(player.elo, opponent.elo))} if wins
+                {formatEloDelta(stakes.win)} if wins
               </Badge>
               <Badge variant="destructive" className="tabular-nums">
-                {formatEloDelta(-getEloChange(opponent.elo, player.elo))} if
-                loses
+                {formatEloDelta(stakes.loss)} if loses
               </Badge>
             </div>
           )}

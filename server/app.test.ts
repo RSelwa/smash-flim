@@ -171,7 +171,8 @@ describe("matches api", () => {
       player1Name: "Mario",
       player2Name: "Link",
       winnerId: null,
-      eloChange: null,
+      player1EloChange: null,
+      player2EloChange: null,
     })
   })
 
@@ -254,12 +255,12 @@ describe("matches api", () => {
       await setWinner(client, matchId, linkId)
     })
 
-    it("should transfer ELO from the loser to the winner", async () => {
+    it("should move the winner up and the loser down", async () => {
       const players = await (await client.api.players.$get()).json()
 
       expect(players).toMatchObject([
-        { id: linkId, elo: 1016, wins: 1, losses: 0 },
-        { id: marioId, elo: 984, wins: 0, losses: 1 },
+        { id: linkId, elo: 1092, wins: 1, losses: 0 },
+        { id: marioId, elo: 908, wins: 0, losses: 1 },
       ])
     })
 
@@ -270,9 +271,10 @@ describe("matches api", () => {
 
       expect(match).toMatchObject({
         winnerId: linkId,
-        eloChange: 16,
         player1EloBefore: STARTING_ELO,
         player2EloBefore: STARTING_ELO,
+        player1EloChange: -92,
+        player2EloChange: 92,
       })
     })
 
@@ -299,7 +301,13 @@ describe("matches api", () => {
         const pendingMatches = await getPendingMatches(client)
 
         expect(pendingMatches).toMatchObject([
-          { id: matchId, winnerId: null, eloChange: null, playedAt: null },
+          {
+            id: matchId,
+            winnerId: null,
+            player1EloChange: null,
+            player2EloChange: null,
+            playedAt: null,
+          },
         ])
       })
 
@@ -322,9 +330,23 @@ describe("matches api", () => {
       const players = await (await client.api.players.$get()).json()
 
       expect(players).toMatchObject([
-        { id: linkId, elo: 1016 },
+        { id: linkId, elo: 1092 },
         { id: marioId, elo: STARTING_ELO },
-        { id: kirbyId, elo: 984 },
+        { id: kirbyId, elo: 908 },
+      ])
+    })
+
+    it("should rerate a player who did not play when a later result changes", async () => {
+      const kirbyId = (await createPlayer(client, "Kirby")).id
+      const laterMatchId = (await createMatch(client, marioId, kirbyId)).id
+      await setWinner(client, laterMatchId, marioId)
+
+      const players = await (await client.api.players.$get()).json()
+
+      expect(players).toMatchObject([
+        { id: linkId, elo: 1120 },
+        { id: marioId, elo: 1000 },
+        { id: kirbyId, elo: 880 },
       ])
     })
   })

@@ -4,7 +4,6 @@ import { X } from "lucide-react"
 import { Link } from "react-router"
 import { toast } from "sonner"
 import { MATCH_STATUS } from "@server/constants.ts"
-import { getEloChange } from "@server/elo.ts"
 import { MatchArena } from "@/components/match-arena"
 import { MatchHistoryTable } from "@/components/match-history-table"
 import { PlayerAvatar } from "@/components/player-avatar"
@@ -36,8 +35,13 @@ import {
 import { ROUTE_PATH } from "@/constants/routes"
 import { client } from "@/lib/api"
 import { formatEloDelta, formatWinRate } from "@/lib/format"
+import { getEloStakes } from "@/lib/get-elo-stakes"
 import { isCompletedMatch } from "@/lib/is-completed-match"
-import { matchesQuery, playersQuery } from "@/lib/queries"
+import {
+  completedMatchesQuery,
+  matchesQuery,
+  playersQuery,
+} from "@/lib/queries"
 
 const PODIUM = ["🥇", "🥈", "🥉"]
 const RECENT_MATCHES_LIMIT = 8
@@ -60,6 +64,7 @@ export const DashboardPage = () => {
       limit: String(RECENT_MATCHES_LIMIT),
     }),
   )
+  const { data: completedMatches = [] } = useQuery(completedMatchesQuery)
 
   const setWinner = useMutation({
     mutationFn: ({ matchId, winnerId }: WinnerVariables) =>
@@ -72,7 +77,12 @@ export const DashboardPage = () => {
     onSuccess: (match) => {
       const isPlayer1Winner = match.winnerId === match.player1Id
       const winnerName = isPlayer1Winner ? match.player1Name : match.player2Name
-      toast.success(`${winnerName} wins! +${match.eloChange} ELO`)
+      const winnerEloChange = isPlayer1Winner
+        ? match.player1EloChange
+        : match.player2EloChange
+      toast.success(
+        `${winnerName} wins! ${formatEloDelta(winnerEloChange ?? 0)} ELO`,
+      )
     },
   })
 
@@ -105,20 +115,20 @@ export const DashboardPage = () => {
           ) : (
             <ul className="grid gap-3">
               {pendingMatches.map((match) => {
+                const player1 = { id: match.player1Id, elo: match.player1Elo }
+                const player2 = { id: match.player2Id, elo: match.player2Elo }
                 const fighters = [
                   {
-                    id: match.player1Id,
+                    ...player1,
                     name: match.player1Name,
                     character: match.player1Character,
-                    elo: match.player1Elo,
-                    opponentElo: match.player2Elo,
+                    stakes: getEloStakes(completedMatches, player1, player2),
                   },
                   {
-                    id: match.player2Id,
+                    ...player2,
                     name: match.player2Name,
                     character: match.player2Character,
-                    elo: match.player2Elo,
-                    opponentElo: match.player1Elo,
+                    stakes: getEloStakes(completedMatches, player2, player1),
                   },
                 ]
                 return (
@@ -145,23 +155,13 @@ export const DashboardPage = () => {
                             </span>
                             <span className="flex gap-1 group-even:justify-end">
                               <Badge variant="success" className="tabular-nums">
-                                {formatEloDelta(
-                                  getEloChange(
-                                    fighter.elo,
-                                    fighter.opponentElo,
-                                  ),
-                                )}
+                                {formatEloDelta(fighter.stakes.win)}
                               </Badge>
                               <Badge
                                 variant="destructive"
                                 className="tabular-nums"
                               >
-                                {formatEloDelta(
-                                  -getEloChange(
-                                    fighter.opponentElo,
-                                    fighter.elo,
-                                  ),
-                                )}
+                                {formatEloDelta(fighter.stakes.loss)}
                               </Badge>
                             </span>
                           </span>
@@ -188,7 +188,7 @@ export const DashboardPage = () => {
                         >
                           <span className="truncate">{fighter.name} won</span>
                           <span className="text-muted-foreground tabular-nums">
-                            +{getEloChange(fighter.elo, fighter.opponentElo)}
+                            {formatEloDelta(fighter.stakes.win)}
                           </span>
                         </Button>
                       ))}

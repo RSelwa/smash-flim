@@ -1,6 +1,8 @@
-import { useMemo, useState } from "react"
+import { type ReactNode, useMemo, useState } from "react"
 import { useQuery } from "@tanstack/react-query"
 import { MATCH_STATUS, STARTING_ELO } from "@server/constants.ts"
+import { replayClassicElo } from "@server/replay-classic-elo.ts"
+import { replayElo } from "@server/replay-elo.ts"
 import type { Player } from "@server/schemas.ts"
 import { Line } from "@/components/dither-kit/area"
 import { LineChart } from "@/components/dither-kit/area-chart"
@@ -91,6 +93,28 @@ const RankEndLabels = () => {
   )
 }
 
+type ChartToggleButtonProps = {
+  isPressed: boolean
+  onClick: () => void
+  children: ReactNode
+}
+
+const ChartToggleButton = ({
+  isPressed,
+  onClick,
+  children,
+}: ChartToggleButtonProps) => (
+  <Button
+    variant="ghost"
+    size="xs"
+    aria-pressed={isPressed}
+    onClick={onClick}
+    className="text-muted-foreground aria-pressed:bg-muted aria-pressed:text-foreground"
+  >
+    {children}
+  </Button>
+)
+
 type PlayerLegendProps = {
   players: Player[]
   playerColors: Map<number, DitherColor>
@@ -134,6 +158,7 @@ export const RankingsPage = () => {
   )
   const [toggledPlayerIds, setToggledPlayerIds] = useState<number[]>([])
   const [isByDate, setIsByDate] = useState(false)
+  const [isClassicElo, setIsClassicElo] = useState(false)
 
   const {
     chartPlayers,
@@ -144,7 +169,11 @@ export const RankingsPage = () => {
     eloFloor,
   } = useMemo(() => {
     const completedMatches = matches.filter(isCompletedMatch)
-    const eloHistory = getEloHistory(players, completedMatches)
+    const eloHistory = getEloHistory(
+      players,
+      completedMatches,
+      isClassicElo ? replayClassicElo : replayElo,
+    )
     const latestSnapshot = eloHistory.at(-1)
     const chartPlayers = players.filter(
       ({ id }) => latestSnapshot?.[getPlayerDataKey(id)] !== undefined,
@@ -153,7 +182,7 @@ export const RankingsPage = () => {
     const visiblePlayers = chartPlayers.filter(
       ({ id }) => !hiddenPlayerIds.includes(id),
     )
-    const rankHistory = getRankHistory(visiblePlayers, completedMatches)
+    const rankHistory = getRankHistory(visiblePlayers, eloHistory)
     const points = isByDate
       ? getPlayDays(completedMatches)
       : eloHistory.map(({ match }, snapshotIndex) => ({
@@ -185,7 +214,7 @@ export const RankingsPage = () => {
         ),
       ),
     }
-  }, [players, matches, toggledPlayerIds, isByDate])
+  }, [players, matches, toggledPlayerIds, isByDate, isClassicElo])
 
   const isPending = isPlayersPending || isMatchesPending
   if (isPending) return null
@@ -224,26 +253,36 @@ export const RankingsPage = () => {
   const snapshotMoment = isByDate
     ? "at the end of each day"
     : "after each match"
-  const xAxisToggle = (
-    <CardAction className="flex gap-1">
-      <Button
-        variant="ghost"
-        size="xs"
-        aria-pressed={!isByDate}
-        onClick={() => setIsByDate(false)}
-        className="text-muted-foreground aria-pressed:bg-muted aria-pressed:text-foreground"
-      >
-        By match
-      </Button>
-      <Button
-        variant="ghost"
-        size="xs"
-        aria-pressed={isByDate}
-        onClick={() => setIsByDate(true)}
-        className="text-muted-foreground aria-pressed:bg-muted aria-pressed:text-foreground"
-      >
-        By date
-      </Button>
+  const chartToggles = (
+    <CardAction className="flex flex-wrap justify-end gap-x-3 gap-y-1">
+      <div className="flex gap-1">
+        <ChartToggleButton
+          isPressed={!isClassicElo}
+          onClick={() => setIsClassicElo(false)}
+        >
+          New ELO
+        </ChartToggleButton>
+        <ChartToggleButton
+          isPressed={isClassicElo}
+          onClick={() => setIsClassicElo(true)}
+        >
+          Classic ELO
+        </ChartToggleButton>
+      </div>
+      <div className="flex gap-1">
+        <ChartToggleButton
+          isPressed={!isByDate}
+          onClick={() => setIsByDate(false)}
+        >
+          By match
+        </ChartToggleButton>
+        <ChartToggleButton
+          isPressed={isByDate}
+          onClick={() => setIsByDate(true)}
+        >
+          By date
+        </ChartToggleButton>
+      </div>
     </CardAction>
   )
 
@@ -265,7 +304,7 @@ export const RankingsPage = () => {
             Leaderboard position {snapshotMoment}. Click a name to leave it out
             of the ranking.
           </CardDescription>
-          {xAxisToggle}
+          {chartToggles}
         </CardHeader>
         <CardContent>
           {rankRows.length === 0 ? (
@@ -306,7 +345,7 @@ export const RankingsPage = () => {
             <CardDescription>
               Rating {snapshotMoment}, to see the gaps. Click a name to hide it.
             </CardDescription>
-            {xAxisToggle}
+            {chartToggles}
           </CardHeader>
           <CardContent>
             <div className="h-96">

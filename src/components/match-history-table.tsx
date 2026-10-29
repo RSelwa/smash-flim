@@ -26,11 +26,13 @@ const getResult = (match: CompletedMatch) => {
     id: match.player1Id,
     name: match.player1Name,
     character: match.player1Character,
+    eloChange: match.player1EloChange,
   }
   const player2 = {
     id: match.player2Id,
     name: match.player2Name,
     character: match.player2Character,
+    eloChange: match.player2EloChange,
   }
   const isPlayer1Winner = match.winnerId === match.player1Id
   return isPlayer1Winner
@@ -81,7 +83,7 @@ export const MatchHistoryTable = ({ matches }: MatchHistoryTableProps) => {
                     character={winner.character}
                   />
                   <span className="text-green-700 tabular-nums dark:text-green-400">
-                    {formatEloDelta(match.eloChange)}
+                    {formatEloDelta(winner.eloChange)}
                   </span>
                 </div>
               </TableCell>
@@ -93,12 +95,12 @@ export const MatchHistoryTable = ({ matches }: MatchHistoryTableProps) => {
                     character={loser.character}
                   />
                   <span className="text-destructive tabular-nums">
-                    {formatEloDelta(-match.eloChange)}
+                    {formatEloDelta(loser.eloChange)}
                   </span>
                 </div>
               </TableCell>
               <TableCell className="text-right font-medium tabular-nums">
-                {formatEloDelta(match.eloChange)}
+                {formatEloDelta(winner.eloChange)}
               </TableCell>
               <TableCell className="w-0">
                 <UndoResultButton matchId={match.id} />

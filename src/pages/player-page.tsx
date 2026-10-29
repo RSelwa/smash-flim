@@ -73,7 +73,7 @@ export const PlayerPage = () => {
       ? match.player1EloBefore
       : match.player2EloBefore
     const hasWon = match.winnerId === player.id
-    const eloDelta = hasWon ? match.eloChange : -match.eloChange
+    const eloDelta = isPlayer1 ? match.player1EloChange : match.player2EloChange
     return {
       match,
       hasWon,

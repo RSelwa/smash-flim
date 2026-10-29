@@ -1,20 +1,20 @@
 import { STARTING_ELO } from "@server/constants.ts"
+import { type RatedMatch } from "@server/elo.ts"
 import type { CompletedMatch, Player } from "@server/schemas.ts"
 import { getPlayerDataKey } from "@/lib/get-rank-history"
 
-type EloSnapshot = Record<string, number> & { match: number }
+export type EloSnapshot = Record<string, number> & { match: number }
 
 export const getEloHistory = (
   players: Player[],
   newestFirstMatches: CompletedMatch[],
+  replay: (oldestFirstMatches: RatedMatch[]) => Map<number, number>[],
 ) => {
-  const elos = new Map<number, number>()
+  const oldestFirstMatches = newestFirstMatches.toReversed()
+  const elosAfterEachMatch = replay(oldestFirstMatches)
 
-  return newestFirstMatches.toReversed().map((match, index): EloSnapshot => {
-    const player1Delta =
-      match.winnerId === match.player1Id ? match.eloChange : -match.eloChange
-    elos.set(match.player1Id, match.player1EloBefore + player1Delta)
-    elos.set(match.player2Id, match.player2EloBefore - player1Delta)
+  return oldestFirstMatches.map((match, index): EloSnapshot => {
+    const elos = elosAfterEachMatch[index]
     const playerElos = players
       .filter(({ createdAt }) => createdAt <= match.playedAt)
       .map(

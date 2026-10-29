@@ -78,6 +78,7 @@ jobs:
           set -euo pipefail
           export PATH="$NODE_BIN:\$PATH"
           cd "$DEPLOY_PATH"
+          [ -f data/smash-v2.db ] || node server/seed-database.ts data/smash.db data/smash-v2.db
           pm2 startOrReload ecosystem.config.cjs --update-env
           pm2 save
           curl --silent --fail --retry 15 --retry-delay 2 --retry-all-errors "$HEALTH_URL" > /dev/null

@@ -3,7 +3,6 @@ import { parseResponse } from "hono/client"
 import { useParams } from "react-router"
 import { toast } from "sonner"
 import type { BracketNode } from "@server/bracket.ts"
-import { getEloChange } from "@server/elo.ts"
 import type { Player } from "@server/schemas.ts"
 import { PlayerAvatar } from "@/components/player-avatar"
 import { PlayerLink } from "@/components/player-link"
@@ -24,9 +23,14 @@ import {
   EmptyTitle,
 } from "@/components/ui/empty"
 import { client } from "@/lib/api"
-import { formatDate } from "@/lib/format"
+import { formatDate, formatEloDelta } from "@/lib/format"
 import { getChampionId } from "@/lib/get-champion-id"
-import { playersQuery, tournamentsQuery } from "@/lib/queries"
+import { getEloStakes } from "@/lib/get-elo-stakes"
+import {
+  completedMatchesQuery,
+  playersQuery,
+  tournamentsQuery,
+} from "@/lib/queries"
 
 const ROUND_LABELS_FROM_FINAL = ["Final", "Semifinals", "Quarterfinals"]
 const BYE_LABEL = "Bye"
@@ -62,6 +66,7 @@ const BracketMatchCard = ({
     { slot: "player2", player: player2, opponent: player1 },
   ]
   const hasResult = winnerId !== null
+  const { data: completedMatches = [] } = useQuery(completedMatchesQuery)
 
   return (
     <li className="divide-y rounded-lg border bg-background">
@@ -105,7 +110,9 @@ const BracketMatchCard = ({
               >
                 Won
                 <span className="text-muted-foreground tabular-nums">
-                  +{getEloChange(player.elo, opponent.elo)}
+                  {formatEloDelta(
+                    getEloStakes(completedMatches, player, opponent).win,
+                  )}
                 </span>
               </Button>
             ) : (
@@ -139,7 +146,12 @@ export const TournamentPage = () => {
     onSuccess: (match) => {
       const isPlayer1Winner = match.winnerId === match.player1Id
       const winnerName = isPlayer1Winner ? match.player1Name : match.player2Name
-      toast.success(`${winnerName} wins! +${match.eloChange} ELO`)
+      const winnerEloChange = isPlayer1Winner
+        ? match.player1EloChange
+        : match.player2EloChange
+      toast.success(
+        `${winnerName} wins! ${formatEloDelta(winnerEloChange ?? 0)} ELO`,
+      )
     },
   })
 

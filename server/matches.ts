@@ -3,17 +3,15 @@ import { HTTPException } from "hono/http-exception"
 import { type DatabaseSync } from "node:sqlite"
 import { z } from "zod"
 import { MATCH_STATUS, SQL_NOW } from "./constants.ts"
-import { getEloChange } from "./elo.ts"
 import {
   createMatchSchema,
   idParamSchema,
   matchSchema,
   matchesQuerySchema,
-  playedMatchSchema,
   setWinnerSchema,
   type MatchesFilter,
 } from "./schemas.ts"
-import { replayElo } from "./replay-elo.ts"
+import { rebuildElo } from "./rebuild-elo.ts"
 import { createTournamentBracket } from "./tournament-bracket.ts"
 import { validate } from "./validate.ts"
 
@@ -23,17 +21,18 @@ const SELECT_MATCHES = `
     m.created_at as createdAt,
     m.played_at as playedAt,
     m.winner_id as winnerId,
-    m.elo_change as eloChange,
     m.player1_id as player1Id,
     p1.name as player1Name,
     p1.character as player1Character,
     p1.elo as player1Elo,
     m.player1_elo_before as player1EloBefore,
+    m.player1_elo_change as player1EloChange,
     m.player2_id as player2Id,
     p2.name as player2Name,
     p2.character as player2Character,
     p2.elo as player2Elo,
     m.player2_elo_before as player2EloBefore,
+    m.player2_elo_change as player2EloChange,
     m.tournament_id as tournamentId
   from matches m
   join players p1 on p1.id = m.player1_id
@@ -48,9 +47,6 @@ const SELECT_MATCHES = `
 const UPDATE_WINNER = `
   update matches set
     winner_id = :winnerId,
-    player1_elo_before = :player1EloBefore,
-    player2_elo_before = :player2EloBefore,
-    elo_change = :eloChange,
     played_at = ${SQL_NOW}
   where id = :id
 `
@@ -60,30 +56,10 @@ const RESET_RESULT = `
     winner_id = null,
     player1_elo_before = null,
     player2_elo_before = null,
-    elo_change = null,
+    player1_elo_change = null,
+    player2_elo_change = null,
     played_at = null
   where id = ?
-`
-
-const SELECT_LATER_MATCHES = `
-  select
-    id,
-    player1_id as player1Id,
-    player2_id as player2Id,
-    winner_id as winnerId,
-    player1_elo_before as player1EloBefore,
-    player2_elo_before as player2EloBefore
-  from matches
-  where winner_id is not null and (played_at, id) > (:playedAt, :id)
-  order by played_at, id
-`
-
-const UPDATE_ELO_SNAPSHOT = `
-  update matches set
-    player1_elo_before = :player1EloBefore,
-    player2_elo_before = :player2EloBefore,
-    elo_change = :eloChange
-  where id = :id
 `
 
 type MatchFilters = MatchesFilter & { matchId?: number }
@@ -98,12 +74,8 @@ export const createMatchesRoutes = (db: DatabaseSync) => {
     "insert into matches (player1_id, player2_id) values (?, ?) returning id",
   )
   const updateWinner = db.prepare(UPDATE_WINNER)
-  const updateElo = db.prepare("update players set elo = elo + ? where id = ?")
   const deleteMatch = db.prepare("delete from matches where id = ?")
   const resetResult = db.prepare(RESET_RESULT)
-  const selectLaterMatches = db.prepare(SELECT_LATER_MATCHES)
-  const updateEloSnapshot = db.prepare(UPDATE_ELO_SNAPSHOT)
-  const setElo = db.prepare("update players set elo = ? where id = ?")
 
   const findMatches = ({ matchId, status, playerId, limit }: MatchFilters) =>
     z.array(matchSchema).parse(
@@ -163,23 +135,10 @@ export const createMatchesRoutes = (db: DatabaseSync) => {
           })
         }
 
-        const [winnerElo, loserElo] = isPlayer1Winner
-          ? [match.player1Elo, match.player2Elo]
-          : [match.player2Elo, match.player1Elo]
-        const loserId = isPlayer1Winner ? match.player2Id : match.player1Id
-        const eloChange = getEloChange(winnerElo, loserElo)
-
         db.exec("begin")
         try {
-          updateWinner.run({
-            id,
-            winnerId,
-            player1EloBefore: match.player1Elo,
-            player2EloBefore: match.player2Elo,
-            eloChange,
-          })
-          updateElo.run(eloChange, winnerId)
-          updateElo.run(-eloChange, loserId)
+          updateWinner.run({ id, winnerId })
+          rebuildElo(db)
           if (match.tournamentId !== null) {
             tournamentBracket.scheduleReadyMatches(match.tournamentId)
           }
@@ -208,21 +167,11 @@ export const createMatchesRoutes = (db: DatabaseSync) => {
         })
       }
 
-      const laterMatches = z
-        .array(playedMatchSchema)
-        .parse(selectLaterMatches.all({ id, playedAt: match.playedAt }))
-      const replay = replayElo(match, laterMatches)
-
       db.exec("begin")
       try {
         resetResult.run(id)
         if (nextMatch) deleteMatch.run(nextMatch.id)
-        replay.matches.forEach((laterMatch) => {
-          updateEloSnapshot.run(laterMatch)
-        })
-        replay.elos.forEach((elo, playerId) => {
-          setElo.run(elo, playerId)
-        })
+        rebuildElo(db)
         db.exec("commit")
       } catch (error) {
         db.exec("rollback")

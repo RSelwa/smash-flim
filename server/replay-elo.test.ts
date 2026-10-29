@@ -1,71 +1,28 @@
-import { describe, expect, it } from "vitest"
-import { STARTING_ELO } from "./constants.ts"
+import { expect, it } from "vitest"
 import { replayElo } from "./replay-elo.ts"
 
 const MARIO_ID = 1
 const LINK_ID = 2
 const KIRBY_ID = 3
-const SAMUS_ID = 4
 
-const undoneMatch = {
-  id: 1,
-  player1Id: MARIO_ID,
-  player2Id: LINK_ID,
-  winnerId: MARIO_ID,
-  player1EloBefore: STARTING_ELO,
-  player2EloBefore: STARTING_ELO,
-}
+it("should rate each match from the results played up to it", () => {
+  const elosAfterEachMatch = replayElo([
+    {
+      player1Id: MARIO_ID,
+      player2Id: LINK_ID,
+      winnerId: MARIO_ID,
+      playedAt: "2026-10-22T14:00:00.000Z",
+    },
+    {
+      player1Id: LINK_ID,
+      player2Id: KIRBY_ID,
+      winnerId: LINK_ID,
+      playedAt: "2026-10-22T15:00:00.000Z",
+    },
+  ])
 
-describe("replayElo", () => {
-  it("should give both players back their rating from before the undone match", () => {
-    const { elos } = replayElo(undoneMatch, [])
-
-    expect(Object.fromEntries(elos)).toEqual({
-      [MARIO_ID]: STARTING_ELO,
-      [LINK_ID]: STARTING_ELO,
-    })
-  })
-
-  it("should recompute a later match from the corrected rating", () => {
-    const { matches, elos } = replayElo(undoneMatch, [
-      {
-        id: 2,
-        player1Id: MARIO_ID,
-        player2Id: KIRBY_ID,
-        winnerId: MARIO_ID,
-        player1EloBefore: 1016,
-        player2EloBefore: STARTING_ELO,
-      },
-    ])
-
-    expect(matches).toEqual([
-      {
-        id: 2,
-        player1EloBefore: STARTING_ELO,
-        player2EloBefore: STARTING_ELO,
-        eloChange: 16,
-      },
-    ])
-    expect(Object.fromEntries(elos)).toMatchObject({
-      [MARIO_ID]: 1016,
-      [KIRBY_ID]: 984,
-    })
-  })
-
-  it("should leave a later match between untouched players as it was", () => {
-    const { matches } = replayElo(undoneMatch, [
-      {
-        id: 2,
-        player1Id: KIRBY_ID,
-        player2Id: SAMUS_ID,
-        winnerId: KIRBY_ID,
-        player1EloBefore: 1100,
-        player2EloBefore: 900,
-      },
-    ])
-
-    expect(matches).toEqual([
-      { id: 2, player1EloBefore: 1100, player2EloBefore: 900, eloChange: 8 },
-    ])
-  })
+  expect(elosAfterEachMatch.map((elos) => Object.fromEntries(elos))).toEqual([
+    { [MARIO_ID]: 1092, [LINK_ID]: 908 },
+    { [MARIO_ID]: 1120, [LINK_ID]: 1000, [KIRBY_ID]: 880 },
+  ])
 })
