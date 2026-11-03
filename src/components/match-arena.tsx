@@ -1,10 +1,11 @@
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { DragDropProvider, useDroppable } from "@dnd-kit/react"
 import { useMutation, useQuery } from "@tanstack/react-query"
 import { type InferRequestType, parseResponse } from "hono/client"
-import { Swords, X } from "lucide-react"
+import { Dices, Swords, X } from "lucide-react"
 import { toast } from "sonner"
-import type { Player } from "@server/schemas.ts"
+import { CHARACTERS } from "@server/characters.ts"
+import type { Character, Player } from "@server/schemas.ts"
 import { DraggableFighter } from "@/components/draggable-fighter"
 import { PlayerAvatar } from "@/components/player-avatar"
 import { Badge } from "@/components/ui/badge"
@@ -18,20 +19,97 @@ import {
 } from "@/components/ui/card"
 import { addFighterToSlots } from "@/lib/add-fighter-to-slots"
 import { client } from "@/lib/api"
+import { buildReel } from "@/lib/build-reel"
 import { formatEloDelta } from "@/lib/format"
+import { getCharacterImageUrl } from "@/lib/get-character-image-url"
 import { getEloStakes } from "@/lib/get-elo-stakes"
 import { completedMatchesQuery, playersQuery } from "@/lib/queries"
 
 const SLOTS = [
-  { id: "player1", label: "Player 1", opponentId: "player2" },
-  { id: "player2", label: "Player 2", opponentId: "player1" },
+  { id: "player1", label: "Player 1", opponentId: "player2", spinMs: 1600 },
+  { id: "player2", label: "Player 2", opponentId: "player1", spinMs: 2200 },
 ] as const
 
 type SlotId = (typeof SLOTS)[number]["id"]
 
+type Roll = {
+  playerId: number
+  reel: Character[]
+  spinCount: number
+}
+
 const EMPTY_SLOTS: Record<SlotId, number | null> = {
   player1: null,
   player2: null,
+}
+
+const EMPTY_ROLLS: Record<SlotId, Roll | null> = {
+  player1: null,
+  player2: null,
+}
+
+type CharacterReelProps = {
+  reel: Character[]
+  spinMs: number
+  playerName: string
+  onReroll: () => void
+}
+
+const CharacterReel = ({
+  reel,
+  spinMs,
+  playerName,
+  onReroll,
+}: CharacterReelProps) => {
+  const [isSpun, setIsSpun] = useState(false)
+
+  useEffect(() => {
+    let frame = requestAnimationFrame(() => {
+      frame = requestAnimationFrame(() => setIsSpun(true))
+    })
+    return () => cancelAnimationFrame(frame)
+  }, [])
+
+  const landedId = reel.at(-1)
+  const landedName = CHARACTERS.find(({ id }) => id === landedId)?.name
+  const landedOffset = ((reel.length - 1) / reel.length) * 100
+
+  return (
+    <div className="grid justify-items-center gap-2">
+      <button
+        type="button"
+        aria-label={`Reroll the fighter of ${playerName}`}
+        title="Reroll"
+        onClick={onReroll}
+        className="relative size-24 overflow-hidden rounded-xl border bg-muted outline-none transition-colors hover:border-muted-foreground/50 focus-visible:ring-3 focus-visible:ring-ring/50"
+      >
+        <span
+          className="flex flex-col transition-transform ease-[cubic-bezier(0.2,0.8,0.2,1.04)] motion-reduce:transition-none"
+          style={{
+            transitionDuration: `${spinMs}ms`,
+            transform: isSpun ? `translateY(-${landedOffset}%)` : undefined,
+          }}
+        >
+          {reel.map((characterId, index) => (
+            <img
+              key={`${index}-${characterId}`}
+              src={getCharacterImageUrl(characterId)}
+              alt=""
+              className="size-24 shrink-0 object-cover"
+            />
+          ))}
+        </span>
+        <span className="pointer-events-none absolute inset-0 bg-linear-to-b from-black/60 via-transparent to-black/60" />
+      </button>
+      <p
+        data-spun={isSpun || undefined}
+        className="text-sm font-medium opacity-0 transition-opacity data-spun:opacity-100 motion-reduce:transition-none"
+        style={{ transitionDelay: `${spinMs}ms` }}
+      >
+        {landedName}
+      </p>
+    </div>
+  )
 }
 
 type FighterSlotProps = {
@@ -39,7 +117,10 @@ type FighterSlotProps = {
   label: string
   player: Player | undefined
   opponent: Player | undefined
+  roll: Roll | undefined
+  spinMs: number
   onClear: () => void
+  onReroll: () => void
 }
 
 const FighterSlot = ({
@@ -47,7 +128,10 @@ const FighterSlot = ({
   label,
   player,
   opponent,
+  roll,
+  spinMs,
   onClear,
+  onReroll,
 }: FighterSlotProps) => {
   const { ref, isDropTarget } = useDroppable({ id })
   const { data: completedMatches = [] } = useQuery(completedMatchesQuery)
@@ -74,11 +158,21 @@ const FighterSlot = ({
           >
             <X />
           </Button>
-          <PlayerAvatar
-            name={player.name}
-            character={player.character}
-            className="size-24"
-          />
+          {roll ? (
+            <CharacterReel
+              key={roll.spinCount}
+              reel={roll.reel}
+              spinMs={spinMs}
+              playerName={player.name}
+              onReroll={onReroll}
+            />
+          ) : (
+            <PlayerAvatar
+              name={player.name}
+              character={player.character}
+              className="size-24"
+            />
+          )}
           <div>
             <p className="font-heading text-lg font-medium">{player.name}</p>
             <p className="text-sm text-muted-foreground tabular-nums">
@@ -106,6 +200,7 @@ const FighterSlot = ({
 export const MatchArena = () => {
   const { data: players = [] } = useQuery(playersQuery)
   const [slots, setSlots] = useState(EMPTY_SLOTS)
+  const [rolls, setRolls] = useState(EMPTY_ROLLS)
 
   const createMatch = useMutation({
     mutationFn: (
@@ -114,6 +209,7 @@ export const MatchArena = () => {
     onSuccess: (match) => {
       toast.success(`${match.player1Name} vs ${match.player2Name} started`)
       setSlots(EMPTY_SLOTS)
+      setRolls(EMPTY_ROLLS)
     },
   })
 
@@ -126,7 +222,36 @@ export const MatchArena = () => {
   const playersInArena = new Set(Object.values(slots))
   const hasTwoFighters =
     slotPlayers.player1 !== undefined && slotPlayers.player2 !== undefined
+  const hasAnyFighter =
+    slotPlayers.player1 !== undefined || slotPlayers.player2 !== undefined
   const canStart = hasTwoFighters && !createMatch.isPending
+
+  const findSlotRoll = (slotId: SlotId) => {
+    const roll = rolls[slotId]
+    return roll?.playerId === slots[slotId] ? roll : undefined
+  }
+
+  const getNextRoll = (slotId: SlotId) => {
+    const player = slotPlayers[slotId]
+    if (!player) return null
+    const roll = findSlotRoll(slotId)
+    return {
+      playerId: player.id,
+      reel: buildReel(roll?.reel.at(-1) ?? player.character),
+      spinCount: (rolls[slotId]?.spinCount ?? 0) + 1,
+    }
+  }
+
+  const handleRollAll = () =>
+    setRolls({
+      player1: getNextRoll("player1"),
+      player2: getNextRoll("player2"),
+    })
+
+  const handleReroll = (slotId: SlotId) => {
+    const roll = getNextRoll(slotId)
+    setRolls((current) => ({ ...current, [slotId]: roll }))
+  }
 
   const handleStart = () => {
     const { player1, player2 } = slotPlayers
@@ -154,16 +279,19 @@ export const MatchArena = () => {
           }}
         >
           <div className="relative grid auto-rows-fr grid-cols-2 gap-4">
-            {SLOTS.map(({ id, label, opponentId }) => (
+            {SLOTS.map(({ id, label, opponentId, spinMs }) => (
               <FighterSlot
                 key={id}
                 id={id}
                 label={label}
                 player={slotPlayers[id]}
                 opponent={slotPlayers[opponentId]}
+                roll={findSlotRoll(id)}
+                spinMs={spinMs}
                 onClear={() =>
                   setSlots((current) => ({ ...current, [id]: null }))
                 }
+                onReroll={() => handleReroll(id)}
               />
             ))}
             <span className="pointer-events-none absolute top-1/2 left-1/2 -translate-1/2 rounded-full bg-background px-3 py-1 font-heading text-sm font-medium ring-1 ring-border">
@@ -189,15 +317,21 @@ export const MatchArena = () => {
             </div>
           )}
         </DragDropProvider>
-        <Button
-          size="lg"
-          className="justify-self-center"
-          disabled={!canStart}
-          onClick={handleStart}
-        >
-          <Swords data-icon="inline-start" />
-          Start match
-        </Button>
+        <div className="flex flex-wrap justify-center gap-2">
+          <Button
+            size="lg"
+            variant="outline"
+            disabled={!hasAnyFighter}
+            onClick={handleRollAll}
+          >
+            <Dices data-icon="inline-start" />
+            Random fighters
+          </Button>
+          <Button size="lg" disabled={!canStart} onClick={handleStart}>
+            <Swords data-icon="inline-start" />
+            Start match
+          </Button>
+        </div>
       </CardContent>
     </Card>
   )
