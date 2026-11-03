@@ -67,8 +67,10 @@ Schema changes are numbered migrations in `server/db.ts`, tracked with
 `pragma user_version`: append one, never edit a shipped one.
 
 Character portraits in `public/characters/` are the Super Smash Bros. Ultimate
-fighter thumbnails from smashbros.com, cropped to 128 px WebP. They are
-Nintendo's artwork: fine for an internal tool, keep the repo private.
+fighter thumbnails from smashbros.com, cropped to 128 px WebP. The alternate
+costumes (`yoshi-red`, `lucina-green`, …) have no thumbnail there: they are the
+same face crop taken from the costume's full render (`fighter/<id>/main<n>.png`).
+They are Nintendo's artwork: fine for an internal tool, keep the repo private.
 
 ## Deploy to the VPS
 
