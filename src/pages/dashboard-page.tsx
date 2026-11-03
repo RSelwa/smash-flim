@@ -137,9 +137,18 @@ export const DashboardPage = () => {
                   >
                     <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-2 text-sm">
                       {fighters.map((fighter) => (
-                        <span
+                        <button
                           key={fighter.id}
-                          className="group flex min-w-0 items-center gap-2 font-medium even:flex-row-reverse even:text-right"
+                          type="button"
+                          title={`${fighter.name} won`}
+                          disabled={isReporting}
+                          onClick={() =>
+                            setWinner.mutate({
+                              matchId: match.id,
+                              winnerId: fighter.id,
+                            })
+                          }
+                          className="group -m-1 flex min-w-0 items-center gap-2 rounded-md p-1 text-left font-medium transition-colors outline-none even:flex-row-reverse even:text-right hover:bg-white/5 focus-visible:ring-3 focus-visible:ring-ring/50 disabled:pointer-events-none disabled:opacity-50"
                         >
                           <PlayerAvatar
                             name={fighter.name}
@@ -164,7 +173,7 @@ export const DashboardPage = () => {
                               </Badge>
                             </span>
                           </span>
-                        </span>
+                        </button>
                       ))}
                       <span className="col-start-2 row-start-1 text-xs text-muted-foreground">
                         vs
