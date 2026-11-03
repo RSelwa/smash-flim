@@ -3,14 +3,8 @@ import { Trophy } from "lucide-react"
 import { generatePath, Link, useParams } from "react-router"
 import { CHARACTERS } from "@server/characters.ts"
 import { MATCH_STATUS, STARTING_ELO } from "@server/constants.ts"
-import { Area } from "@/components/dither-kit/area"
-import { AreaChart } from "@/components/dither-kit/area-chart"
-import { type ChartConfig } from "@/components/dither-kit/chart-context"
-import { Grid } from "@/components/dither-kit/grid"
-import { Tooltip } from "@/components/dither-kit/tooltip"
-import { XAxis } from "@/components/dither-kit/x-axis"
-import { YAxis } from "@/components/dither-kit/y-axis"
 import { EditPlayerDialog } from "@/components/edit-player-dialog"
+import { LineChart } from "@/components/line-chart"
 import { PlayerAvatar } from "@/components/player-avatar"
 import { PlayerLink } from "@/components/player-link"
 import { UndoResultButton } from "@/components/undo-result-button"
@@ -44,12 +38,9 @@ import {
 } from "@/lib/format"
 import { getChampionId } from "@/lib/get-champion-id"
 import { getEloFloor } from "@/lib/get-elo-floor"
+import { getSeriesColor } from "@/lib/get-series-color"
 import { isCompletedMatch } from "@/lib/is-completed-match"
 import { matchesQuery, playersQuery, tournamentsQuery } from "@/lib/queries"
-
-const chartConfig = {
-  elo: { label: "ELO", color: "blue" },
-} satisfies ChartConfig
 
 export const PlayerPage = () => {
   const { id = "" } = useParams()
@@ -194,13 +185,19 @@ export const PlayerPage = () => {
         </CardHeader>
         <CardContent>
           <div className="h-64">
-            <AreaChart data={chartRows} config={chartConfig}>
-              <Grid />
-              <XAxis dataKey="game" />
-              <YAxis tickFormatter={formatElo} />
-              <Tooltip labelKey="label" valueFormatter={formatElo} />
-              <Area dataKey="elo" />
-            </AreaChart>
+            <LineChart
+              data={chartRows}
+              series={[
+                {
+                  dataKey: "elo",
+                  label: "ELO",
+                  color: getSeriesColor(playerIndex),
+                },
+              ]}
+              xKey="game"
+              formatValue={formatElo}
+              hasArea
+            />
           </div>
         </CardContent>
       </Card>

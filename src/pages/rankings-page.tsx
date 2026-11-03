@@ -4,21 +4,7 @@ import { MATCH_STATUS, STARTING_ELO } from "@server/constants.ts"
 import { replayClassicElo } from "@server/replay-classic-elo.ts"
 import { replayElo } from "@server/replay-elo.ts"
 import type { Player } from "@server/schemas.ts"
-import { Line } from "@/components/dither-kit/area"
-import { LineChart } from "@/components/dither-kit/area-chart"
-import {
-  type ChartConfig,
-  useChartPart,
-} from "@/components/dither-kit/chart-context"
-import { Grid } from "@/components/dither-kit/grid"
-import {
-  type DitherColor,
-  rgb,
-  seedOfColor,
-} from "@/components/dither-kit/palette"
-import { Tooltip } from "@/components/dither-kit/tooltip"
-import { XAxis } from "@/components/dither-kit/x-axis"
-import { YAxis } from "@/components/dither-kit/y-axis"
+import { LineChart } from "@/components/line-chart"
 import { Button } from "@/components/ui/button"
 import {
   Card,
@@ -39,20 +25,9 @@ import { getEloHistory } from "@/lib/get-elo-history"
 import { getHiddenPlayerIds } from "@/lib/get-hidden-player-ids"
 import { getPlayDays } from "@/lib/get-play-days"
 import { getPlayerDataKey, getRankHistory } from "@/lib/get-rank-history"
+import { getSeriesColor } from "@/lib/get-series-color"
 import { isCompletedMatch } from "@/lib/is-completed-match"
 import { matchesQuery, playersQuery } from "@/lib/queries"
-
-const SERIES_COLORS: DitherColor[] = [
-  "blue",
-  "orange",
-  "green",
-  "pink",
-  "purple",
-  "red",
-  "grey",
-]
-const NAME_LABEL_WIDTH = 96
-const NAME_LABEL_GAP = 6
 
 type Snapshot = Record<string, number> & { match: number }
 
@@ -66,32 +41,6 @@ const toChartRow = (
   label,
   ...Object.fromEntries(dataKeys.map((key) => [key, toValue(snapshot[key])])),
 })
-
-const RankEndLabels = () => {
-  const { ready, configKeys, config, bands, dataLength, xCenter, y } =
-    useChartPart("RankEndLabels")
-  if (!ready) return null
-
-  const lastIndex = dataLength - 1
-  return (
-    <g className="fill-foreground text-xs">
-      {configKeys.map((key) => {
-        const value = bands[key]?.[lastIndex]?.[1]
-        if (!value) return null
-        return (
-          <text
-            key={key}
-            x={xCenter(lastIndex) + NAME_LABEL_GAP}
-            y={y(value)}
-            dominantBaseline="central"
-          >
-            {config[key]?.label}
-          </text>
-        )
-      })}
-    </g>
-  )
-}
 
 type ChartToggleButtonProps = {
   isPressed: boolean
@@ -117,36 +66,33 @@ const ChartToggleButton = ({
 
 type PlayerLegendProps = {
   players: Player[]
-  playerColors: Map<number, DitherColor>
+  getPlayerColor: (playerId: number) => string
   hiddenPlayerIds: number[]
   onToggle: (playerId: number) => void
 }
 
 const PlayerLegend = ({
   players,
-  playerColors,
+  getPlayerColor,
   hiddenPlayerIds,
   onToggle,
 }: PlayerLegendProps) => (
-  <div className="flex flex-wrap items-center justify-center gap-1 pt-3">
-    {players.map((player) => {
-      const color = playerColors.get(player.id) ?? "grey"
-      return (
-        <button
-          key={player.id}
-          type="button"
-          aria-pressed={!hiddenPlayerIds.includes(player.id)}
-          onClick={() => onToggle(player.id)}
-          className="group flex items-center gap-1.5 rounded-md px-1.5 py-0.5 text-sm hover:bg-muted aria-[pressed=false]:text-muted-foreground aria-[pressed=false]:line-through"
-        >
-          <span
-            className="size-2 shrink-0 rounded-[2px] group-aria-[pressed=false]:opacity-30"
-            style={{ backgroundColor: rgb(seedOfColor(color).fill) }}
-          />
-          {player.name}
-        </button>
-      )
-    })}
+  <div className="flex flex-wrap items-center justify-center gap-1 pt-4">
+    {players.map((player) => (
+      <button
+        key={player.id}
+        type="button"
+        aria-pressed={!hiddenPlayerIds.includes(player.id)}
+        onClick={() => onToggle(player.id)}
+        className="group flex items-center gap-2 rounded-md px-2 py-1 text-sm transition-colors hover:bg-muted aria-[pressed=false]:text-muted-foreground aria-[pressed=false]:line-through"
+      >
+        <span
+          className="size-2 shrink-0 rounded-full group-aria-[pressed=false]:opacity-30"
+          style={{ backgroundColor: getPlayerColor(player.id) }}
+        />
+        {player.name}
+      </button>
+    ))}
   </div>
 )
 
@@ -220,21 +166,13 @@ export const RankingsPage = () => {
   if (isPending) return null
 
   const rankCount = visiblePlayers.length
-  const playerColors = new Map(
-    players
-      .toSorted((a, b) => a.id - b.id)
-      .map(
-        ({ id }, index) =>
-          [id, SERIES_COLORS[index % SERIES_COLORS.length]] as const,
-      ),
-  )
-  const visibleDataKeys = visiblePlayers.map(({ id }) => getPlayerDataKey(id))
-  const chartConfig = Object.fromEntries(
-    visiblePlayers.map((player) => [
-      getPlayerDataKey(player.id),
-      { label: player.name, color: playerColors.get(player.id) ?? "grey" },
-    ]),
-  ) satisfies ChartConfig
+  const getPlayerColor = (playerId: number) =>
+    getSeriesColor(players.findIndex(({ id }) => id === playerId))
+  const series = visiblePlayers.map((player) => ({
+    dataKey: getPlayerDataKey(player.id),
+    label: player.name,
+    color: getPlayerColor(player.id),
+  }))
 
   const formatRank = (value: number) => {
     const isRank = Number.isInteger(value) && value >= 1 && value <= rankCount
@@ -289,7 +227,7 @@ export const RankingsPage = () => {
   const playerLegend = (
     <PlayerLegend
       players={chartPlayers}
-      playerColors={playerColors}
+      getPlayerColor={getPlayerColor}
       hiddenPlayerIds={hiddenPlayerIds}
       onToggle={togglePlayer}
     />
@@ -321,17 +259,12 @@ export const RankingsPage = () => {
               <div className="h-96">
                 <LineChart
                   data={rankRows}
-                  config={chartConfig}
-                  margins={{ right: NAME_LABEL_WIDTH }}
-                >
-                  <XAxis dataKey={xAxisKey} />
-                  <YAxis tickCount={rankCount} tickFormatter={formatRank} />
-                  <Tooltip labelKey="label" valueFormatter={formatRank} />
-                  {visibleDataKeys.map((dataKey) => (
-                    <Line key={dataKey} dataKey={dataKey} />
-                  ))}
-                  <RankEndLabels />
-                </LineChart>
+                  series={series}
+                  xKey={xAxisKey}
+                  formatValue={formatRank}
+                  yTickCount={rankCount}
+                  hasEndLabels
+                />
               </div>
               {playerLegend}
             </>
@@ -349,15 +282,12 @@ export const RankingsPage = () => {
           </CardHeader>
           <CardContent>
             <div className="h-96">
-              <LineChart data={eloRows} config={chartConfig}>
-                <Grid />
-                <XAxis dataKey={xAxisKey} />
-                <YAxis tickFormatter={formatElo} />
-                <Tooltip labelKey="label" valueFormatter={formatElo} />
-                {visibleDataKeys.map((dataKey) => (
-                  <Line key={dataKey} dataKey={dataKey} />
-                ))}
-              </LineChart>
+              <LineChart
+                data={eloRows}
+                series={series}
+                xKey={xAxisKey}
+                formatValue={formatElo}
+              />
             </div>
             {playerLegend}
           </CardContent>
