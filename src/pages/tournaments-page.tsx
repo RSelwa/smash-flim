@@ -104,7 +104,7 @@ export const TournamentsPage = () => {
         tournament,
         ...current,
       ])
-      toast.success("Bracket drawn, fight!")
+      toast.success("Bracket drawn")
       void navigate(
         generatePath(ROUTE_PATH.tournament, { id: String(tournament.id) }),
       )
@@ -197,7 +197,7 @@ export const TournamentsPage = () => {
               <EmptyHeader>
                 <EmptyTitle>No tournament yet</EmptyTitle>
                 <EmptyDescription>
-                  Draw a bracket to start the first one.
+                  Draw a bracket to start the first one
                 </EmptyDescription>
               </EmptyHeader>
             </Empty>

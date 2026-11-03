@@ -13,7 +13,6 @@ import { EditPlayerDialog } from "@/components/edit-player-dialog"
 import { PlayerAvatar } from "@/components/player-avatar"
 import { PlayerLink } from "@/components/player-link"
 import { UndoResultButton } from "@/components/undo-result-button"
-import { Badge } from "@/components/ui/badge"
 import {
   Card,
   CardContent,
@@ -61,7 +60,7 @@ export const PlayerPage = () => {
       <Empty>
         <EmptyHeader>
           <EmptyTitle>Player not found</EmptyTitle>
-          <EmptyDescription>This fighter left the arena.</EmptyDescription>
+          <EmptyDescription>This fighter left the arena</EmptyDescription>
         </EmptyHeader>
       </Empty>
     )
@@ -125,7 +124,7 @@ export const PlayerPage = () => {
           className="size-20"
         />
         <div className="grid gap-1">
-          <h1 className="font-heading text-2xl font-semibold">{player.name}</h1>
+          <h1 className="font-heading text-2xl font-medium">{player.name}</h1>
           <p className="text-sm text-muted-foreground">
             Main: {mainName ?? "none yet"}
           </p>
@@ -140,7 +139,7 @@ export const PlayerPage = () => {
           <Card key={label} size="sm">
             <CardContent>
               <dt className="text-xs text-muted-foreground">{label}</dt>
-              <dd className="text-xl font-semibold tabular-nums">{value}</dd>
+              <dd className="text-xl font-medium tabular-nums">{value}</dd>
             </CardContent>
           </Card>
         ))}
@@ -170,9 +169,7 @@ export const PlayerPage = () => {
         </CardHeader>
         <CardContent>
           {history.length === 0 ? (
-            <p className="text-sm text-muted-foreground">
-              No match played yet.
-            </p>
+            <p className="text-sm text-muted-foreground">No match played yet</p>
           ) : (
             <Table>
               <TableHeader>
@@ -193,10 +190,14 @@ export const PlayerPage = () => {
                       <TableCell className="text-muted-foreground">
                         {formatDate(match.playedAt)}
                       </TableCell>
-                      <TableCell>
-                        <Badge variant={hasWon ? "default" : "destructive"}>
-                          {hasWon ? "Win" : "Loss"}
-                        </Badge>
+                      <TableCell
+                        className={
+                          hasWon
+                            ? "text-green-700 dark:text-green-400"
+                            : "text-destructive"
+                        }
+                      >
+                        {hasWon ? "Win" : "Loss"}
                       </TableCell>
                       <TableCell>
                         <PlayerLink {...opponent} />

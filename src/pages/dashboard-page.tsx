@@ -43,7 +43,6 @@ import {
   playersQuery,
 } from "@/lib/queries"
 
-const PODIUM = ["🥇", "🥈", "🥉"]
 const RECENT_MATCHES_LIMIT = 8
 
 type WinnerVariables = {
@@ -81,7 +80,7 @@ export const DashboardPage = () => {
         ? match.player1EloChange
         : match.player2EloChange
       toast.success(
-        `${winnerName} wins! ${formatEloDelta(winnerEloChange ?? 0)} ELO`,
+        `${winnerName} won, ${formatEloDelta(winnerEloChange ?? 0)} ELO`,
       )
     },
   })
@@ -167,7 +166,7 @@ export const DashboardPage = () => {
                           </span>
                         </span>
                       ))}
-                      <span className="col-start-2 row-start-1 text-xs text-muted-foreground uppercase">
+                      <span className="col-start-2 row-start-1 text-xs text-muted-foreground">
                         vs
                       </span>
                     </div>
@@ -210,7 +209,7 @@ export const DashboardPage = () => {
         </CardContent>
       </Card>
 
-      <Card className="lg:col-start-1 lg:row-span-2 lg:row-start-2">
+      <Card className="lg:col-start-1 lg:row-span-2 lg:row-start-2 lg:self-start">
         <CardHeader>
           <CardTitle>Leaderboard</CardTitle>
           <CardDescription>
@@ -223,7 +222,7 @@ export const DashboardPage = () => {
               <EmptyHeader>
                 <EmptyTitle>No fighters yet</EmptyTitle>
                 <EmptyDescription>
-                  Add players to start the ladder.
+                  Add players to start the ladder
                 </EmptyDescription>
               </EmptyHeader>
             </Empty>
@@ -241,8 +240,8 @@ export const DashboardPage = () => {
               <TableBody>
                 {players.map((player, index) => (
                   <TableRow key={player.id}>
-                    <TableCell className="tabular-nums">
-                      {PODIUM[index] ?? index + 1}
+                    <TableCell className="text-muted-foreground tabular-nums">
+                      {index + 1}
                     </TableCell>
                     <TableCell>
                       <PlayerLink
@@ -251,7 +250,7 @@ export const DashboardPage = () => {
                         character={player.character}
                       />
                     </TableCell>
-                    <TableCell className="text-right font-semibold tabular-nums">
+                    <TableCell className="text-right font-medium tabular-nums">
                       {player.elo}
                     </TableCell>
                     <TableCell className="text-right text-muted-foreground tabular-nums">

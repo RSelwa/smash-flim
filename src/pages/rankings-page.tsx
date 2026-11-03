@@ -312,7 +312,7 @@ export const RankingsPage = () => {
               <EmptyHeader>
                 <EmptyTitle>No ranking yet</EmptyTitle>
                 <EmptyDescription>
-                  Report a match to start the chart.
+                  Report a match to start the chart
                 </EmptyDescription>
               </EmptyHeader>
             </Empty>

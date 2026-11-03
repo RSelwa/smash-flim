@@ -47,7 +47,7 @@ export const MatchHistoryTable = ({ matches }: MatchHistoryTableProps) => {
         <EmptyHeader>
           <EmptyTitle>No matches yet</EmptyTitle>
           <EmptyDescription>
-            Results show up here once reported.
+            Results show up here once reported
           </EmptyDescription>
         </EmptyHeader>
       </Empty>
@@ -61,7 +61,6 @@ export const MatchHistoryTable = ({ matches }: MatchHistoryTableProps) => {
           <TableHead>Played</TableHead>
           <TableHead>Winner</TableHead>
           <TableHead>Loser</TableHead>
-          <TableHead className="text-right">ELO swing</TableHead>
           <TableHead>
             <span className="sr-only">Undo</span>
           </TableHead>
@@ -75,7 +74,7 @@ export const MatchHistoryTable = ({ matches }: MatchHistoryTableProps) => {
               <TableCell className="text-muted-foreground">
                 {formatDate(match.playedAt)}
               </TableCell>
-              <TableCell className="bg-green-500/10 dark:bg-green-500/20">
+              <TableCell>
                 <div className="flex items-center justify-between gap-2">
                   <PlayerLink
                     id={winner.id}
@@ -87,7 +86,7 @@ export const MatchHistoryTable = ({ matches }: MatchHistoryTableProps) => {
                   </span>
                 </div>
               </TableCell>
-              <TableCell className="bg-destructive/10 dark:bg-destructive/20">
+              <TableCell>
                 <div className="flex items-center justify-between gap-2">
                   <PlayerLink
                     id={loser.id}
@@ -98,9 +97,6 @@ export const MatchHistoryTable = ({ matches }: MatchHistoryTableProps) => {
                     {formatEloDelta(loser.eloChange)}
                   </span>
                 </div>
-              </TableCell>
-              <TableCell className="text-right font-medium tabular-nums">
-                {formatEloDelta(winner.eloChange)}
               </TableCell>
               <TableCell className="w-0">
                 <UndoResultButton matchId={match.id} />

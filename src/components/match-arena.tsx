@@ -58,9 +58,9 @@ const FighterSlot = ({
     <div
       ref={ref}
       data-drop-target={isDropTarget || undefined}
-      className="relative flex min-h-60 flex-col items-center justify-center gap-3 rounded-xl border-2 border-dashed p-6 text-center transition-colors data-drop-target:border-primary data-drop-target:bg-primary/5"
+      className="relative flex min-h-40 flex-col items-center justify-center gap-3 rounded-xl border-2 border-dashed p-6 text-center transition-colors data-drop-target:border-primary data-drop-target:bg-primary/5"
     >
-      <span className="absolute top-3 left-4 text-xs font-medium tracking-wide text-muted-foreground uppercase">
+      <span className="absolute top-3 left-4 text-xs font-medium text-muted-foreground">
         {label}
       </span>
       {player ? (
@@ -80,7 +80,7 @@ const FighterSlot = ({
             className="size-24"
           />
           <div>
-            <p className="font-heading text-lg font-semibold">{player.name}</p>
+            <p className="font-heading text-lg font-medium">{player.name}</p>
             <p className="text-sm text-muted-foreground tabular-nums">
               {player.elo} ELO
             </p>
@@ -112,7 +112,7 @@ export const MatchArena = () => {
       json: InferRequestType<typeof client.api.matches.$post>["json"],
     ) => parseResponse(client.api.matches.$post({ json })),
     onSuccess: (match) => {
-      toast.success(`${match.player1Name} vs ${match.player2Name}, fight!`)
+      toast.success(`${match.player1Name} vs ${match.player2Name} started`)
       setSlots(EMPTY_SLOTS)
     },
   })
@@ -139,7 +139,7 @@ export const MatchArena = () => {
       <CardHeader>
         <CardTitle>Arena</CardTitle>
         <CardDescription>
-          Drag or click two fighters into the arena, then start the match.
+          Drag or click two fighters into the arena, then start the match
         </CardDescription>
       </CardHeader>
       <CardContent className="grid gap-4">
@@ -166,7 +166,7 @@ export const MatchArena = () => {
                 }
               />
             ))}
-            <span className="pointer-events-none absolute top-1/2 left-1/2 -translate-1/2 rounded-full bg-background px-3 py-1 font-heading text-lg font-bold italic ring-1 ring-border">
+            <span className="pointer-events-none absolute top-1/2 left-1/2 -translate-1/2 rounded-full bg-background px-3 py-1 font-heading text-sm font-medium ring-1 ring-border">
               VS
             </span>
           </div>

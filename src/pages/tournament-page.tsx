@@ -1,5 +1,6 @@
 import { useMutation, useQuery } from "@tanstack/react-query"
 import { parseResponse } from "hono/client"
+import { Trophy } from "lucide-react"
 import { useParams } from "react-router"
 import { toast } from "sonner"
 import type { BracketNode } from "@server/bracket.ts"
@@ -92,7 +93,7 @@ const BracketMatchCard = ({
             key={slot}
             data-winner={isWinner || undefined}
             data-loser={isLoser || undefined}
-            className="flex h-11 items-center gap-2 px-2 text-sm data-loser:text-muted-foreground data-winner:font-semibold"
+            className="flex h-11 items-center gap-2 px-2 text-sm data-loser:text-muted-foreground data-winner:font-medium"
           >
             <PlayerAvatar
               name={player.name}
@@ -150,7 +151,7 @@ export const TournamentPage = () => {
         ? match.player1EloChange
         : match.player2EloChange
       toast.success(
-        `${winnerName} wins! ${formatEloDelta(winnerEloChange ?? 0)} ELO`,
+        `${winnerName} won, ${formatEloDelta(winnerEloChange ?? 0)} ELO`,
       )
     },
   })
@@ -166,7 +167,7 @@ export const TournamentPage = () => {
       <Empty>
         <EmptyHeader>
           <EmptyTitle>Tournament not found</EmptyTitle>
-          <EmptyDescription>This bracket was never drawn.</EmptyDescription>
+          <EmptyDescription>This bracket was never drawn</EmptyDescription>
         </EmptyHeader>
       </Empty>
     )
@@ -185,7 +186,7 @@ export const TournamentPage = () => {
         </CardDescription>
         {champion && (
           <CardAction className="flex items-center gap-2">
-            🏆
+            <Trophy className="size-4 text-muted-foreground" />
             <PlayerLink
               id={champion.id}
               name={champion.name}
@@ -198,7 +199,7 @@ export const TournamentPage = () => {
         <div className="grid min-w-max auto-cols-[15rem] grid-flow-col gap-6">
           {tournament.rounds.map((nodes, round) => (
             <section key={round} className="flex flex-col gap-3">
-              <h2 className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
+              <h2 className="text-xs font-medium text-muted-foreground">
                 {getRoundLabel(round, tournament.rounds.length)}
               </h2>
               <ul className="flex flex-1 flex-col justify-around gap-4">
