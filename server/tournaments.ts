@@ -3,7 +3,8 @@ import { HTTPException } from "hono/http-exception"
 import { type DatabaseSync } from "node:sqlite"
 import { z } from "zod"
 import { drawBracket } from "./bracket.ts"
-import { createTournamentSchema } from "./schemas.ts"
+import { rebuildElo } from "./rebuild-elo.ts"
+import { createTournamentSchema, idParamSchema } from "./schemas.ts"
 import { createTournamentBracket } from "./tournament-bracket.ts"
 import { validate } from "./validate.ts"
 
@@ -37,6 +38,13 @@ export const createTournamentsRoutes = (db: DatabaseSync) => {
   const insertSlot = db.prepare(
     "insert into tournament_slots (tournament_id, slot, player_id) values (?, ?, ?)",
   )
+  const deleteMatches = db.prepare(
+    "delete from matches where tournament_id = ?",
+  )
+  const deleteSlots = db.prepare(
+    "delete from tournament_slots where tournament_id = ?",
+  )
+  const deleteTournamentRow = db.prepare("delete from tournaments where id = ?")
 
   const findTournaments = (tournamentId: number | null) =>
     tournamentsSchema
@@ -70,6 +78,20 @@ export const createTournamentsRoutes = (db: DatabaseSync) => {
     }
   }
 
+  const deleteTournament = (tournamentId: number) => {
+    db.exec("begin")
+    try {
+      deleteMatches.run(tournamentId)
+      deleteSlots.run(tournamentId)
+      deleteTournamentRow.run(tournamentId)
+      rebuildElo(db)
+      db.exec("commit")
+    } catch (error) {
+      db.exec("rollback")
+      throw error
+    }
+  }
+
   return new Hono()
     .get("/", (c) => c.json(findTournaments(null)))
     .post("/", validate("json", createTournamentSchema), (c) => {
@@ -84,5 +106,11 @@ export const createTournamentsRoutes = (db: DatabaseSync) => {
 
       const id = createTournament(rankedPlayerIds)
       return c.json(findTournament(id), 201)
+    })
+    .delete("/:id", validate("param", idParamSchema), (c) => {
+      const { id } = c.req.valid("param")
+      findTournament(id)
+      deleteTournament(id)
+      return c.body(null, 204)
     })
 }

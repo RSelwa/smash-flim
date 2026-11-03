@@ -5,6 +5,7 @@ import { useParams } from "react-router"
 import { toast } from "sonner"
 import type { BracketNode } from "@server/bracket.ts"
 import type { Player } from "@server/schemas.ts"
+import { DeleteTournamentDialog } from "@/components/delete-tournament-dialog"
 import { PlayerAvatar } from "@/components/player-avatar"
 import { PlayerLink } from "@/components/player-link"
 import { UndoResultButton } from "@/components/undo-result-button"
@@ -184,16 +185,19 @@ export const TournamentPage = () => {
         <CardDescription>
           Started {formatDate(tournament.createdAt)}
         </CardDescription>
-        {champion && (
-          <CardAction className="flex items-center gap-2">
-            <Trophy className="size-4 text-muted-foreground" />
-            <PlayerLink
-              id={champion.id}
-              name={champion.name}
-              character={champion.character}
-            />
-          </CardAction>
-        )}
+        <CardAction className="flex items-center gap-4">
+          {champion && (
+            <span className="flex items-center gap-2">
+              <Trophy className="size-4 text-muted-foreground" />
+              <PlayerLink
+                id={champion.id}
+                name={champion.name}
+                character={champion.character}
+              />
+            </span>
+          )}
+          <DeleteTournamentDialog tournamentId={tournament.id} />
+        </CardAction>
       </CardHeader>
       <CardContent className="overflow-x-auto">
         <div className="grid min-w-max auto-cols-[15rem] grid-flow-col gap-6">

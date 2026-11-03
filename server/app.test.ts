@@ -48,6 +48,11 @@ const undoResult = (client: Client, matchId: number) =>
 const createTournament = (client: Client, playerIds: number[]) =>
   client.api.tournaments.$post({ json: { playerIds } })
 
+const deleteTournament = (client: Client, tournamentId: number) =>
+  client.api.tournaments[":id"].$delete({
+    param: { id: String(tournamentId) },
+  })
+
 const createTournamentPlayers = (client: Client, names: string[]) =>
   Promise.all(names.map((name) => createPlayer(client, name)))
 
@@ -467,6 +472,33 @@ describe("tournaments api", () => {
     expect(response.status).toBe(409)
   })
 
+  it("should delete a tournament with its pending matches", async () => {
+    const client = createClient()
+    const players = await createTournamentPlayers(client, ["Mario", "Link"])
+    const tournament = await (
+      await createTournament(
+        client,
+        players.map(({ id }) => id),
+      )
+    ).json()
+
+    const response = await deleteTournament(client, tournament.id)
+    const tournaments = await (await client.api.tournaments.$get()).json()
+    const pendingMatches = await getPendingMatches(client)
+
+    expect(response.status).toBe(204)
+    expect(tournaments).toEqual([])
+    expect(pendingMatches).toEqual([])
+  })
+
+  it("should reject an unknown tournament on delete", async () => {
+    const client = createClient()
+
+    const response = await deleteTournament(client, 999)
+
+    expect(response.status).toBe(404)
+  })
+
   describe("when every first-round match is reported", () => {
     let client: Client
     let finalistIds: number[]
@@ -535,6 +567,24 @@ describe("tournaments api", () => {
       const response = await undoResult(client, semifinal.id)
 
       expect(response.status).toBe(409)
+    })
+
+    it("should give back the ELO of its results once deleted", async () => {
+      const [tournament] = await (await client.api.tournaments.$get()).json()
+      assert(tournament)
+
+      await deleteTournament(client, tournament.id)
+      const players = await (await client.api.players.$get()).json()
+      const completedMatches = await (
+        await client.api.matches.$get({
+          query: { status: MATCH_STATUS.completed },
+        })
+      ).json()
+
+      expect(players.map(({ elo }) => elo)).toEqual(
+        players.map(() => STARTING_ELO),
+      )
+      expect(completedMatches).toEqual([])
     })
   })
 })
