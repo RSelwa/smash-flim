@@ -1,5 +1,6 @@
 import { useQuery } from "@tanstack/react-query"
-import { useParams } from "react-router"
+import { Trophy } from "lucide-react"
+import { generatePath, Link, useParams } from "react-router"
 import { CHARACTERS } from "@server/characters.ts"
 import { MATCH_STATUS, STARTING_ELO } from "@server/constants.ts"
 import { Area } from "@/components/dither-kit/area"
@@ -34,10 +35,17 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
-import { formatDate, formatEloDelta, formatWinRate } from "@/lib/format"
+import { ROUTE_PATH } from "@/constants/routes"
+import {
+  formatDate,
+  formatDay,
+  formatEloDelta,
+  formatWinRate,
+} from "@/lib/format"
+import { getChampionId } from "@/lib/get-champion-id"
 import { getEloFloor } from "@/lib/get-elo-floor"
 import { isCompletedMatch } from "@/lib/is-completed-match"
-import { matchesQuery, playersQuery } from "@/lib/queries"
+import { matchesQuery, playersQuery, tournamentsQuery } from "@/lib/queries"
 
 const chartConfig = {
   elo: { label: "ELO", color: "blue" },
@@ -52,6 +60,7 @@ export const PlayerPage = () => {
     ...matchesQuery({ playerId: id, status: MATCH_STATUS.completed }),
     enabled: player !== undefined,
   })
+  const { data: tournaments = [] } = useQuery(tournamentsQuery)
 
   if (isPending) return null
 
@@ -98,6 +107,9 @@ export const PlayerPage = () => {
       .map(({ eloAfter }, index) => ({ game: index + 1, elo: eloAfter })),
   ]
   const mainName = CHARACTERS.find(({ id }) => id === player.character)?.name
+  const wonTournaments = tournaments.filter(
+    ({ rounds }) => getChampionId(rounds) === player.id,
+  )
   const elos = chartData.map(({ elo }) => elo)
   const peakElo = Math.max(...elos)
   const eloFloor = getEloFloor(elos)
@@ -144,6 +156,36 @@ export const PlayerPage = () => {
           </Card>
         ))}
       </dl>
+
+      {wonTournaments.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Trophies</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <ul className="flex flex-wrap gap-3">
+              {wonTournaments.map((tournament) => (
+                <li key={tournament.id}>
+                  <Link
+                    to={generatePath(ROUTE_PATH.tournament, {
+                      id: String(tournament.id),
+                    })}
+                    className="grid w-28 justify-items-center gap-1 rounded-lg border p-3 text-center transition-colors hover:bg-muted"
+                  >
+                    <Trophy className="mb-1 size-10 text-amber-400" />
+                    <span className="text-sm font-medium">
+                      Tournament #{tournament.id}
+                    </span>
+                    <span className="text-xs text-muted-foreground">
+                      {formatDay(tournament.createdAt)}
+                    </span>
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </CardContent>
+        </Card>
+      )}
 
       <Card className="overflow-visible">
         <CardHeader>
